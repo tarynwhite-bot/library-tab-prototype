@@ -1,489 +1,875 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Hatch Profile Prototype</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Restore Prototype</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #e8e8e8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-  button { font-family: inherit; }
-  ::-webkit-scrollbar { display: none; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#030810;font-family:-apple-system,'SF Pro Display',sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center}
+  @keyframes pulse{0%,80%,100%{transform:scale(0.6);opacity:0.3}40%{transform:scale(1);opacity:1}}
+  @keyframes eq{from{transform:scaleY(0.3)}to{transform:scaleY(1)}}
+  input::placeholder{color:rgba(255,255,255,0.25)}
+  ::-webkit-scrollbar{display:none}
+  *{scrollbar-width:none}
+  button:focus{outline:none}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useRef } = React;
 
-const C = {
-  pageBg: "#e8e8e8", phoneBg: "#f5f5f5", card: "#ffffff", cardInner: "#f0f0f0",
-  text: "#111111", muted: "rgba(0,0,0,0.4)", dim: "rgba(0,0,0,0.25)", faint: "rgba(0,0,0,0.1)",
-  border: "rgba(0,0,0,0.1)", borderHi: "rgba(0,0,0,0.18)", accent: "#222222",
-  accentMid: "#555555", accentSoft: "rgba(0,0,0,0.06)", accentBorder: "rgba(0,0,0,0.2)",
-  purple: "#444444", amber: "#444444",
-};
+// ── Icons ──────────────────────────────────────────────
+const ChevronRight = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5"><polyline points="9,18 15,12 9,6"/></svg>;
+const ChevronLeft  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5"><polyline points="15,18 9,12 15,6"/></svg>;
+const ChevronDown  = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2.5"><polyline points="6,9 12,15 18,9"/></svg>;
+const PlayFill     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="#0A0F1E"><polygon points="5,3 19,12 5,21"/></svg>;
+const ArrowRight   = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>;
+const Sparkle      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="#A78BFA"><path d="M12 2L13.5 9.5L21 12L13.5 14.5L12 22L10.5 14.5L3 12L10.5 9.5L12 2Z"/></svg>;
+const Plus         = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const HeartIcon    = ({filled}) => <svg width="14" height="14" viewBox="0 0 24 24" fill={filled?"#ef4444":"none"} stroke={filled?"#ef4444":"white"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
 
-const glass = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, ...extra });
+// ── Constants ──────────────────────────────────────────
+const BG="#060D1F", CARD="#162040", SHEET_BG="#0E1830";
+const PEEK=0.246, FULL=0.88;
 
-function Sunrise() {
-  return (
-    <div style={{ width: "100%", height: 180, overflow: "hidden", position: "relative", background: C.phoneBg }}>
-      <svg viewBox="0 0 375 180" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-        <defs>
-          <radialGradient id="sunGlow" cx="50%" cy="100%" r="70%">
-            <stop offset="0%" stopColor="#aaaaaa" stopOpacity="0.5" />
-            <stop offset="40%" stopColor="#cccccc" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#f5f5f5" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="domeGrad" cx="50%" cy="100%" r="80%">
-            <stop offset="0%" stopColor="#888888" stopOpacity="0.3" />
-            <stop offset="60%" stopColor="#bbbbbb" stopOpacity="0.1" />
-            <stop offset="100%" stopColor="#dddddd" stopOpacity="0" />
-          </radialGradient>
-          <filter id="gblur"><feGaussianBlur stdDeviation="10" /></filter>
-          <filter id="sblur"><feGaussianBlur stdDeviation="4" /></filter>
-        </defs>
-        <ellipse cx="187.5" cy="182" rx="260" ry="160" fill="url(#sunGlow)" filter="url(#gblur)" />
-        <path d="M 20 180 A 167.5 167.5 0 0 1 355 180 Z M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill="rgba(0,0,0,0.07)" fillRule="evenodd" />
-        <path d="M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill={C.phoneBg} />
-        <path d="M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill="url(#domeGrad)" />
-        {[30,60,90,120,150].map((a,i) => {
-          const rad = (a*Math.PI)/180;
-          return <line key={i} x1="187.5" y1="180" x2={187.5+Math.cos(Math.PI-rad)*160} y2={180-Math.sin(rad)*160} stroke="rgba(0,0,0,0.03)" strokeWidth="28" />;
-        })}
-        <circle cx="187.5" cy="180" r="22" fill="#999999" opacity="0.2" filter="url(#sblur)" />
-        <circle cx="187.5" cy="180" r="9" fill="#555555" opacity="0.5" />
-      </svg>
-    </div>
-  );
-}
-
-const Sheet = ({ title, onClose, children }) => (
-  <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 30 }} onClick={onClose}>
-    <div onClick={e => e.stopPropagation()} style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#f9f9f9", borderRadius: "24px 24px 0 0", padding: "16px 20px 44px", maxHeight: "85%", overflowY: "auto", border: `1px solid ${C.border}`, boxShadow: "0 -4px 30px rgba(0,0,0,0.12)" }}>
-      <div style={{ width: 36, height: 4, background: "rgba(0,0,0,0.15)", borderRadius: 2, margin: "0 auto 16px" }} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <span style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{title}</span>
-        <button onClick={onClose} style={{ background: "rgba(0,0,0,0.06)", border: `1px solid ${C.border}`, borderRadius: "50%", width: 28, height: 28, color: C.muted, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-      </div>
-      {children}
-    </div>
+// ── Small reusable components ──────────────────────────
+const Equalizer = () => (
+  <div style={{display:"flex",alignItems:"flex-end",gap:"2px",height:"14px"}}>
+    {[{h:60,d:"0s"},{h:100,d:"0.2s"},{h:40,d:"0.1s"},{h:80,d:"0.3s"}].map((b,i)=>(
+      <div key={i} style={{width:"3px",borderRadius:"1.5px",background:"#A78BFA",height:`${b.h}%`,animation:`eq 0.8s ease-in-out ${b.d} infinite alternate`}}/>
+    ))}
   </div>
 );
 
-const OptionList = ({ options, selected, multi, onToggle }) => {
-  const [local, setLocal] = useState(selected ?? (multi ? [] : null));
-  const toggle = opt => { if (multi) setLocal(l => (l||[]).includes(opt) ? l.filter(s=>s!==opt) : [...(l||[]),opt]); else setLocal(opt); };
+const HeartButton = ({style={}}) => {
+  const [faved,setFaved] = useState(false);
   return (
-    <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-        {options.map(opt => {
-          const on = multi ? (local||[]).includes(opt) : local === opt;
-          return <button key={opt} onClick={() => toggle(opt)} style={{ padding: "13px 16px", borderRadius: 14, fontSize: 15, textAlign: "left", background: on ? "rgba(0,0,0,0.08)" : C.card, color: on ? C.accent : C.text, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: on ? 600 : 400 }}>
-            {opt}{on && <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>✓</span>}
-          </button>;
-        })}
+    <button onClick={e=>{e.stopPropagation();setFaved(f=>!f);}} style={{background:"rgba(0,0,0,0.35)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(6px)",borderRadius:"50%",width:"28px",height:"28px",...style}}>
+      <HeartIcon filled={faved}/>
+    </button>
+  );
+};
+
+const FeaturedTile = ({tile}) => {
+  const [faved,setFaved] = useState(false);
+  return (
+    <div style={{flexShrink:0,width:"220px",cursor:"pointer"}}>
+      <div style={{width:"220px",height:"140px",borderRadius:"14px",background:tile.art,marginBottom:"8px",position:"relative",overflow:"hidden"}}>
+        <button onClick={e=>{e.stopPropagation();setFaved(f=>!f);}} style={{position:"absolute",top:8,right:8,width:"28px",height:"28px",borderRadius:"50%",background:"rgba(0,0,0,0.35)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(6px)"}}>
+          <HeartIcon filled={faved}/>
+        </button>
+        {tile.label&&<div style={{position:"absolute",bottom:8,left:8}}><span style={{background:"rgba(0,0,0,0.4)",color:"rgba(255,255,255,0.9)",fontSize:"9px",fontWeight:700,padding:"2px 7px",borderRadius:"20px",backdropFilter:"blur(6px)",letterSpacing:"0.05em",textTransform:"uppercase"}}>{tile.label}</span></div>}
       </div>
-      <button onClick={() => onToggle && onToggle(local)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
+      <div style={{color:"rgba(255,255,255,0.85)",fontSize:"13px",fontWeight:600,lineHeight:"1.3"}}>{tile.title}</div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:"11px",marginTop:"2px"}}>{tile.sub}</div>
     </div>
   );
 };
 
-const TagSelect = ({ options, selected, onChange }) => (
-  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-    {options.map(opt => { const on = selected.includes(opt); return <button key={opt} onClick={() => onChange(on ? selected.filter(s=>s!==opt) : [...selected,opt])} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 13, background: on ? "rgba(0,0,0,0.1)" : C.card, color: on ? C.accent : C.muted, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", fontWeight: on ? 600 : 400 }}>{opt}</button>; })}
-  </div>
-);
-
-const LIGHTS = [
-  { name: "Bright White", color: "#ffffff" }, { name: "Warm White", color: "#eeeeee" },
-  { name: "Sunrise", color: "#dddddd" }, { name: "Amber", color: "#cccccc" },
-  { name: "Coral", color: "#bbbbbb" }, { name: "Lavender", color: "#aaaaaa" },
-  { name: "Sky Blue", color: "#888888" }, { name: "Forest", color: "#666666" },
-  { name: "Off", color: "#333333" },
-];
-
-function LightSelector({ current, onSave }) {
-  const [sel, setSel] = useState(current || "Bright White");
-  const light = LIGHTS.find(l => l.name === sel) || LIGHTS[0];
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-        <div style={{ width: 80, height: 80, borderRadius: "50%", background: light.color, border: `1px solid ${C.border}`, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", transition: "all 0.3s ease" }} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
-        {LIGHTS.map(l => <button key={l.name} onClick={() => setSel(l.name)} style={{ padding: "12px 8px", borderRadius: 14, border: `1.5px solid ${sel===l.name ? C.accent : C.border}`, background: sel===l.name ? "rgba(0,0,0,0.06)" : C.card, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: l.color, border: `1px solid ${C.border}` }} />
-          <span style={{ fontSize: 11, color: sel===l.name ? C.accent : C.muted, textAlign: "center", lineHeight: 1.2, fontWeight: sel===l.name ? 600 : 400 }}>{l.name}</span>
-        </button>)}
-      </div>
-      <button onClick={() => onSave(sel)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
-    </div>
-  );
-}
-
-const SOUNDS = [
-  { name: "Rain", icon: "🌧️" }, { name: "Ocean Waves", icon: "🌊" }, { name: "White Noise", icon: "🔲" },
-  { name: "Brown Noise", icon: "🟫" }, { name: "Forest", icon: "🌿" }, { name: "Fireplace", icon: "🔥" },
-  { name: "Fan", icon: "💨" }, { name: "Thunderstorm", icon: "⛈️" }, { name: "Pink Noise", icon: "🌸" }, { name: "None", icon: "🔇" },
-];
-
-function SoundSelector({ current, onSave }) {
-  const [sel, setSel] = useState(current || "None");
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-        {SOUNDS.map(s => <button key={s.name} onClick={() => setSel(s.name)} style={{ padding: "14px 12px", borderRadius: 14, border: `1.5px solid ${sel===s.name ? C.accent : C.border}`, background: sel===s.name ? "rgba(0,0,0,0.06)" : C.card, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontWeight: sel===s.name ? 600 : 400 }}>
-          <span style={{ fontSize: 22 }}>{s.icon}</span>
-          <span style={{ fontSize: 14, color: sel===s.name ? C.accent : C.text }}>{s.name}</span>
-        </button>)}
-      </div>
-      <button onClick={() => onSave(sel)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
-    </div>
-  );
-}
-
-const QUIZ_STEPS = [
-  { key: "betterSleep", title: "What does better sleep mean to you?", hint: "Pick the one that resonates most.", multi: false, options: ["An investment in self-care","Feeling calmer and less frazzled","Tackling responsibilities without running out of steam","Having energy to take on new challenges","Taking control of 'me' time"] },
-  { key: "focusArea", title: "What's your focus area?", hint: "We'll tailor your experience around this.", multi: false, options: ["Morning","Evening","Both"] },
-  { key: "controlAreas", title: "What do you have control over?", hint: "This helps us set realistic goals.", multi: false, options: ["Fixed wake time","Fixed bedtime","Both are flexible","Neither is flexible"] },
-  { key: "bedSharing", title: "Do you share your bed?", hint: "This helps calibrate your device.", multi: false, options: ["Solo","With a partner","With a child","With a pet","Multiple"] },
-  { key: "bedSize", title: "What size is your bed?", hint: null, multi: false, options: ["Twin / Single","Full / Double","Queen","King","California King"] },
-  { key: "influences", title: "What influences your sleep?", hint: "Select all that apply.", multi: true, options: ["Stress","Hormones","Young children","Frequent travel","Noise","Shift work","Anxiety","Overheating"] },
-  { key: "behaviors", title: "What most affects your sleep?", hint: "Be honest — we're here to help.", multi: true, options: ["Stressing about life as I fall asleep","Looking at my phone in bed","Staying up too late","Overworking the snooze button","I'm doing pretty well already"] },
-  { key: "wakeStyle", title: "How do you like to wake up?", hint: "This shapes your morning alarm experience.", multi: false, options: ["Gentle — ease me in slowly","Motivating — a little push","High energy — let's go"] },
-  { key: "windDown", title: "What do you like to do before bed?", hint: "Select all that apply.", multi: true, options: ["Reading","Yoga","Stretching","Journaling","Meditation","Breathwork","Light TV","Skincare"] },
-  { key: "contentTypes", title: "What content do you enjoy?", hint: "We'll build your library around these.", multi: true, options: ["Music","Meditations","Soundscapes","Bedtime Podcasts","Bedtime Stories","Sound Baths","ASMR"] },
-];
-
-function QuizFlow({ onComplete, onBack }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const q = QUIZ_STEPS[step];
-  const current = answers[q.key] ?? (q.multi ? [] : null);
-  const progress = (step+1)/QUIZ_STEPS.length;
-  const canAdvance = q.multi ? (current?.length > 0) : !!current;
-  const toggle = opt => { if (q.multi) setAnswers(a => ({ ...a, [q.key]: (current||[]).includes(opt) ? (current||[]).filter(s=>s!==opt) : [...(current||[]),opt] })); else setAnswers(a => ({ ...a, [q.key]: opt })); };
-  const advance = () => step < QUIZ_STEPS.length-1 ? setStep(s=>s+1) : onComplete(answers);
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "12px 20px 24px", overflowY: "auto", background: C.phoneBg }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={step===0 ? onBack : ()=>setStep(s=>s-1)} style={{ background: "none", border: "none", color: C.accent, fontSize: 22, cursor: "pointer" }}>‹</button>
-        <div style={{ flex: 1, height: 3, background: "rgba(0,0,0,0.1)", borderRadius: 2 }}>
-          <div style={{ width: `${progress*100}%`, height: "100%", background: C.accent, borderRadius: 2, transition: "width 0.3s" }} />
-        </div>
-        <span style={{ fontSize: 12, color: C.muted }}>{step+1}/{QUIZ_STEPS.length}</span>
-      </div>
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Getting to know you</div>
-        <div style={{ fontSize: 21, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: q.hint ? 8 : 0 }}>{q.title}</div>
-        {q.hint && <div style={{ fontSize: 13, color: C.muted }}>{q.hint}</div>}
-      </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-        {q.options.map(opt => { const on = q.multi ? (current||[]).includes(opt) : current===opt; return <button key={opt} onClick={() => toggle(opt)} style={{ padding: "14px 18px", borderRadius: 16, fontSize: 15, textAlign: "left", background: on ? "rgba(0,0,0,0.08)" : C.card, color: on ? C.accent : C.text, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: on ? 600 : 400 }}>
-          {opt}{on && <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:11, fontWeight:700, flexShrink:0 }}>✓</span>}
-        </button>; })}
-      </div>
-      <button onClick={advance} disabled={!canAdvance} style={{ marginTop: 20, width: "100%", padding: 16, borderRadius: 16, background: canAdvance ? C.accent : "rgba(0,0,0,0.08)", color: canAdvance ? "#fff" : "rgba(0,0,0,0.25)", fontSize: 16, fontWeight: 700, border: "none", cursor: canAdvance ? "pointer" : "default" }}>{step===QUIZ_STEPS.length-1 ? "Finish" : "Continue"}</button>
-    </div>
-  );
-}
-
-const PROFILE_FIELDS = {
-  values: [
-    { key: "betterSleep", label: "What better sleep means to you", multi: false, options: ["An investment in self-care","Feeling calmer and less frazzled","Tackling responsibilities without running out of steam","Having energy to take on new challenges","Taking control of 'me' time"] },
-    { key: "focusArea", label: "Focus area", multi: false, options: ["Morning","Evening","Both"] },
-    { key: "controlAreas", label: "Areas of control", multi: false, options: ["Fixed wake time","Fixed bedtime","Both are flexible","Neither is flexible"] },
-  ],
-  context: [
-    { key: "bedSharing", label: "Bed sharing", multi: false, options: ["Solo","With a partner","With a child","With a pet","Multiple"] },
-    { key: "bedSize", label: "Bed size", multi: false, options: ["Twin / Single","Full / Double","Queen","King","California King"] },
-    { key: "influences", label: "Influences on sleep", multi: true, options: ["Stress","Hormones","Young children","Frequent travel","Noise","Shift work","Anxiety","Overheating"] },
-    { key: "behaviors", label: "What most affects sleep", multi: true, options: ["Stressing about life","Phone in bed","Staying up too late","Overworking snooze","Doing pretty well"] },
-    { key: "consistency", label: "Sleep schedule", multi: false, options: ["Very regular","Fairly regular","Varies by day","Shifts or irregular"] },
-  ],
-  prefs: [
-    { key: "wakeStyle", label: "How you like to wake up", multi: false, options: ["Gentle — ease me in slowly","Motivating — a little push","High energy — let's go"] },
-    { key: "windDown", label: "Before-bed activities", multi: true, options: ["Reading","Yoga","Stretching","Journaling","Meditation","Breathwork","Light TV","Skincare"] },
-    { key: "contentTypes", label: "Content you enjoy", multi: true, options: ["Music","Meditations","Soundscapes","Bedtime Podcasts","Bedtime Stories","Sound Baths","ASMR"] },
-  ],
-};
-
-function EditableProfileCard({ title, fields, profile, setProfile }) {
-  const [activeSheet, setActiveSheet] = useState(null);
-  const activeField = fields.find(f => f.key === activeSheet);
-  return (
-    <>
-      <div style={{ ...glass(), padding: "16px", marginBottom: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{title}</div>
-        {fields.map((f, i) => {
-          const val = profile[f.key];
-          const display = Array.isArray(val) ? (val.length > 0 ? val.slice(0,2).join(", ")+(val.length>2?` +${val.length-2}`:"") : null) : val;
-          return <div key={f.key} onClick={() => setActiveSheet(f.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i<fields.length-1 ? `1px solid ${C.border}` : "none", cursor: "pointer" }}>
-            <span style={{ fontSize: 14, color: display ? C.text : C.muted }}>{f.label}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 13, color: display ? C.accentMid : C.faint, maxWidth: 140, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{display || "Set"}</span>
-              <span style={{ color: C.faint, fontSize: 16 }}>›</span>
-            </div>
-          </div>;
-        })}
-      </div>
-      {activeSheet && activeField && <Sheet title={activeField.label} onClose={() => setActiveSheet(null)}>
-        {activeField.multi
-          ? <><TagSelect options={activeField.options} selected={profile[activeField.key]||[]} onChange={v => setProfile(p => ({ ...p, [activeField.key]: v }))} /><button onClick={() => setActiveSheet(null)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button></>
-          : <OptionList options={activeField.options} selected={profile[activeField.key]} multi={false} onToggle={opt => { setProfile(p => ({ ...p, [activeField.key]: opt })); setActiveSheet(null); }} />
-        }
-      </Sheet>}
-    </>
-  );
-}
-
-function DeviceCard({ device, setDevice }) {
-  const [activeSheet, setActiveSheet] = useState(null);
-  const stats = [
-    { key: "wifi", label: "Wi-Fi", value: device.wifi, tappable: false },
-    { key: "sensing", label: "Sleep sensing", value: device.sensing, tappable: false },
-    { key: "light", label: "Bedside Light", value: device.light, tappable: true },
-    { key: "sleepBtn", label: "Sleep Button", value: device.sleepBtn, tappable: true },
-    { key: "display", label: "Display", value: device.display, tappable: false },
-  ];
-  return (
-    <>
-      <div style={{ ...glass(), padding: "16px", marginBottom: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: C.cardInner, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🌙</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>My Sleep Clock</div>
-              <div style={{ fontSize: 11, color: C.muted }}>Hatch Sleep Clock</div>
-            </div>
-          </div>
-        </div>
-        <a href="#" onClick={e => e.preventDefault()} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: C.accentMid, textDecoration: "none", marginBottom: 14, borderBottom: `1px solid ${C.border}`, paddingBottom: 14 }}>
-          <span>📖</span> Hardware User Guide <span style={{ color: C.faint, fontSize: 16, marginLeft: "auto" }}>›</span>
-        </a>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginBottom: 7 }}>
-          {stats.slice(0,3).map(s => <div key={s.key} onClick={s.tappable ? () => setActiveSheet(s.key) : undefined} style={{ background: C.cardInner, borderRadius: 10, padding: "9px 10px", border: `1px solid ${C.border}`, cursor: s.tappable ? "pointer" : "default", position: "relative" }}>
-            <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>{s.label}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.value}</div>
-            {s.tappable && <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: C.faint }}>›</span>}
-          </div>)}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          {stats.slice(3).map(s => <div key={s.key} onClick={s.tappable ? () => setActiveSheet(s.key) : undefined} style={{ background: C.cardInner, borderRadius: 10, padding: "9px 12px", border: `1px solid ${C.border}`, cursor: s.tappable ? "pointer" : "default", position: "relative" }}>
-            <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>{s.label}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.value}</div>
-            {s.tappable && <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: C.faint }}>›</span>}
-          </div>)}
-        </div>
-      </div>
-      {activeSheet==="light" && <Sheet title="Bedside Light" onClose={() => setActiveSheet(null)}><LightSelector current={device.light} onSave={v => { setDevice(d=>({...d,light:v})); setActiveSheet(null); }} /></Sheet>}
-      {activeSheet==="sleepBtn" && <Sheet title="Sleep Button Sound" onClose={() => setActiveSheet(null)}><SoundSelector current={device.sleepBtn==="Not set"?"None":device.sleepBtn} onSave={v => { setDevice(d=>({...d,sleepBtn:v})); setActiveSheet(null); }} /></Sheet>}
-    </>
-  );
-}
-
-function ProfileScreen({ newUser, sharedProfile, setSharedProfile }) {
-  const defaultEmpty = { betterSleep: null, focusArea: null, controlAreas: null, bedSize: null, bedSharing: null, influences: [], behaviors: [], consistency: null, wakeStyle: null, windDown: [], contentTypes: [] };
-  const defaultFull = { betterSleep: "Feeling calmer and less frazzled", focusArea: "Evening", controlAreas: "Fixed wake time", bedSize: "Queen", bedSharing: "With a partner", influences: ["Stress","Hormones"], behaviors: ["Phone in bed"], consistency: "Fairly regular", wakeStyle: "Gentle — ease me in slowly", windDown: ["Reading","Stretching"], contentTypes: ["Music","Soundscapes"] };
-  const [profile, setProfile] = useState(sharedProfile ?? (newUser ? defaultEmpty : defaultFull));
-  const [device, setDevice] = useState({ wifi: "Online", sensing: "Auto", light: "Bright White", sleepBtn: "Not set", display: "Always off" });
-  const updateProfile = updater => { setProfile(p => { const next = typeof updater==="function" ? updater(p) : updater; if (setSharedProfile) setSharedProfile(next); return next; }); };
-
-  return (
-    <div style={{ overflowY: "auto", flex: 1, padding: "8px 16px 32px", background: C.phoneBg }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: C.text, margin: "0 0 2px" }}>Profile</h1>
-        <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>Your sleep identity and device settings</p>
-      </div>
-      <div style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "18px 20px", marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Your sleep goal</div>
-        {profile.betterSleep ? <>
-          <div style={{ fontSize: 17, fontWeight: 600, color: C.text, lineHeight: 1.4, marginBottom: 10 }}>"{profile.betterSleep}"</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {profile.focusArea && <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, background: C.cardInner, color: C.accentMid, border: `1px solid ${C.border}` }}>Focus: {profile.focusArea}</span>}
-            {profile.controlAreas && <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, background: C.cardInner, color: C.accentMid, border: `1px solid ${C.border}` }}>{profile.controlAreas}</span>}
-          </div>
-        </> : <div style={{ fontSize: 14, color: C.muted }}>Complete setup to see your sleep goal here.</div>}
-      </div>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Sleep Profile</div>
-      <EditableProfileCard title="Sleep Values" fields={PROFILE_FIELDS.values} profile={profile} setProfile={updateProfile} />
-      <EditableProfileCard title="Sleep Context" fields={PROFILE_FIELDS.context} profile={profile} setProfile={updateProfile} />
-      <EditableProfileCard title="Preferences" fields={PROFILE_FIELDS.prefs} profile={profile} setProfile={updateProfile} />
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", margin: "20px 0 12px" }}>My Sleep Clock</div>
-      <DeviceCard device={device} setDevice={setDevice} />
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", margin: "20px 0 12px" }}>Account</div>
-      <div style={{ ...glass(), overflow: "hidden", marginBottom: 20 }}>
-        {[["Notifications","On"],["Subscription","Hatch+"],["Account","taryn@hatch.co"]].map(([l,v],i,arr) => (
-          <div key={l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", borderBottom: i<arr.length-1 ? `1px solid ${C.border}` : "none", cursor:"pointer" }}>
-            <span style={{ fontSize:15, color:C.text }}>{l}</span>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <span style={{ fontSize:14, color:C.muted }}>{v}</span>
-              <span style={{ color:C.faint, fontSize:18 }}>›</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button style={{ width:"100%", padding:14, borderRadius:14, background:"rgba(180,0,0,0.06)", color:"#cc2222", fontSize:15, border:"1px solid rgba(180,0,0,0.15)", cursor:"pointer" }}>Sign out</button>
-    </div>
-  );
-}
-
-const MetricCard = ({ icon, title, value, sub, days }) => (
-  <div style={{ ...glass(), padding: "14px 16px", marginBottom: 10 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, background: C.cardInner, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{icon}</div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.8 }}>{title}</span>
-      </div>
-      <span style={{ fontSize: 11, color: C.faint }}>ⓘ</span>
-    </div>
-    {sub && <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{sub}</div>}
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-      <div style={{ fontSize: 30, fontWeight: 700, color: C.text, lineHeight: 1 }}>{value}</div>
-      {days && <div style={{ display: "flex", gap: 4, alignItems: "flex-end" }}>
-        {["M","T","W","T","F","S","S"].map((d,i) => <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-          <div style={{ width:6, height:Math.max(4,days[i]*30), background: days[i]>0.5 ? C.accent : C.cardInner, borderRadius:3, border:`1px solid ${C.border}` }} />
-          <span style={{ fontSize:9, color:C.muted }}>{d}</span>
-        </div>)}
-      </div>}
+const StatusBar = () => (
+  <div style={{padding:"14px 28px 0",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+    <span style={{color:"#fff",fontSize:"15px",fontWeight:700}}>9:41</span>
+    <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="white"><rect x="0" y="4" width="3" height="8" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.5"/><rect x="9" y="0.5" width="3" height="11.5" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="white"><path d="M8 2.4C10.5 2.4 12.7 3.4 14.3 5L16 3.3C13.9 1.2 11.1 0 8 0S2.1 1.2 0 3.3L1.7 5C3.3 3.4 5.5 2.4 8 2.4z"/><path d="M8 5.6c1.5 0 2.9.6 3.9 1.6L13.6 5.5C12.1 4 10.2 3.2 8 3.2S3.9 4 2.4 5.5l1.7 1.7C5.1 6.2 6.5 5.6 8 5.6z"/><circle cx="8" cy="10" r="2"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" strokeOpacity="0.35"/><rect x="1" y="1" width="20" height="10" rx="3" fill="white"/><path d="M23 4v4a2 2 0 0 0 0-4z" fill="white" fillOpacity="0.4"/></svg>
     </div>
   </div>
 );
 
-function SleepScreen({ newUser, quizComplete, onStartQuiz, onViewProfile }) {
-  return (
-    <div style={{ overflowY: "auto", flex: 1, background: C.phoneBg }}>
-      <Sunrise />
-      <div style={{ padding: "16px 16px 24px" }}>
-        {newUser ? <>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.text, margin: "0 0 6px" }}>Welcome to Hatch</h1>
-          <p style={{ fontSize: 14, color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>Let's personalize your experience so Hatch can support your sleep from the very first night.</p>
-          {quizComplete ? (
-            <div style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "22px 20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                <div style={{ width: 52, height: 52, borderRadius: 16, background: C.cardInner, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>✅</div>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Getting to know you</div>
-                  <div style={{ fontSize: 13, color: C.accentMid, fontWeight: 600 }}>Complete!</div>
-                </div>
-              </div>
-              <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Hatch experience is now personalized. You can update your preferences any time.</p>
-              <button onClick={onViewProfile} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 24, background: C.cardInner, color: C.accent, fontSize: 14, fontWeight: 600, border: `1px solid ${C.border}`, cursor: "pointer" }}>View your profile ›</button>
-            </div>
-          ) : (
-            <div onClick={onStartQuiz} style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "22px 20px", cursor: "pointer", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                <div style={{ fontSize: 32 }}>✨</div>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Getting to know you</div>
-                  <div style={{ fontSize: 13, color: C.muted }}>About 2 minutes</div>
-                </div>
-              </div>
-              <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Tell us about your sleep, your habits, and what you're hoping to improve. We'll use this to build your personalized Hatch experience.</p>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 24, background: C.accent, color: "#fff", fontSize: 14, fontWeight: 700 }}>Let's go ›</div>
-            </div>
-          )}
-        </> : <>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>Sleep</h1>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Last 7 days</div>
-          <MetricCard icon="🎵" title="Bedtime Playlist Sessions" value="13m" sub="Avg time to fall asleep" days={[0.4,0.8,0.6,1,0.5,0.7,0.9]} />
-          <MetricCard icon="📵" title="Goodnight Phone Wins" value="5" sub="nights per week" days={[1,0,1,1,0,1,1]} />
-          <MetricCard icon="🌙" title="Bedtime Rhythm" value="2h 9m" sub="Variability" days={[0.6,0.4,0.9,0.3,0.7,0.5,0.8]} />
-          <MetricCard icon="💤" title="Time Asleep" value="8h 31m" sub="Avg duration" days={[0.7,0.9,0.6,1,0.8,0.5,0.9]} />
-          <MetricCard icon="☀️" title="Wake Time Rhythm" value="1h 14m" sub="Variability" days={[0.5,0.3,0.8,0.4,0.6,0.9,0.4]} />
-        </>}
-      </div>
+const CarouselRow = ({label,items}) => (
+  <div style={{margin:"20px -24px 0",paddingLeft:"24px"}}>
+    <div style={{color:"#fff",fontSize:"14px",fontWeight:600,marginBottom:"10px"}}>{label}</div>
+    <div style={{display:"flex",gap:"10px",overflowX:"auto",paddingBottom:"4px"}}>
+      {items.map((tile,i)=><SmallTile key={i} tile={tile}/>)}
+      <div style={{width:"24px",flexShrink:0}}/>
     </div>
-  );
-}
+  </div>
+);
 
-function PlanScreen() {
+const SmallTile = ({tile}) => {
+  const [added,setAdded] = useState(false);
   return (
-    <div style={{ overflowY: "auto", flex: 1, padding: "16px", background: C.phoneBg }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, color: C.text, marginBottom: 20 }}>Tonight's plan</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        {[["Bedtime","10:00 PM","Reminder at 9:30 PM"],["Wake time","7:00 AM","Sunrise at 6:30 AM"]].map(([l,t,s]) => (
-          <div key={l} style={{ ...glass(), padding: 14 }}>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{l}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{t}</div>
-            <div style={{ fontSize: 11, color: C.accentMid, marginTop: 4 }}>● {s}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontSize: 16, color: C.text }}>Bedtime playlist</span>
-        <button style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 20, padding: "8px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>▶ Start</button>
-      </div>
-      {[["Irreverent Meditations","Moonrise Horizon Light · 12 min","#cccccc"],["Handpan Harmony","Golden Coast Light · 22 min","#bbbbbb"],["i'll scroll 4 u","Lunar Dusk Light · 18 min","#aaaaaa"]].map(([t,s,c]) => (
-        <div key={t} style={{ ...glass(), padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: c, flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{t}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{s}</div>
-          </div>
-          <span style={{ color: C.faint }}>›</span>
+    <div style={{flexShrink:0,width:"120px",cursor:"pointer"}}>
+      <div style={{width:"120px",height:"80px",borderRadius:"12px",background:tile.art,marginBottom:"7px",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",bottom:6,left:6,width:"20px",height:"20px",borderRadius:"50%",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function App() {
-  const [tab, setTab] = useState("sleep");
-  const [showProfile, setShowProfile] = useState(false);
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [newUser, setNewUser] = useState(false);
-  const [quizComplete, setQuizComplete] = useState(false);
-  const [sharedProfile, setSharedProfile] = useState(null);
-  const handleQuizComplete = answers => { setSharedProfile(answers); setQuizComplete(true); setShowQuiz(false); };
-  const handleViewProfile = () => { setShowProfile(true); setShowQuiz(false); };
-
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", minHeight: "100vh", background: C.pageBg, padding: "32px 16px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <div style={{ width: 375, background: C.phoneBg, borderRadius: 48, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.08)", position: "relative", height: 780, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 24px 0", fontSize: 12, fontWeight: 600, color: C.text, flexShrink: 0 }}>
-          <span>9:41</span>
-          <div style={{ display: "flex", gap: 5, alignItems: "center", fontSize: 11 }}><span>▲▲▲</span><span>WiFi</span><span>▮▮</span></div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 20px 0", flexShrink: 0 }}>
-          <button onClick={() => { setShowProfile(!showProfile); setShowQuiz(false); }} style={{ width: 38, height: 38, borderRadius: "50%", background: showProfile ? C.accent : C.card, border: `1.5px solid ${showProfile ? C.accent : C.border}`, color: showProfile ? "#fff" : C.muted, fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>👤</button>
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", padding: "4px 0", flexShrink: 0 }}>
-          <button onClick={() => { setNewUser(!newUser); setQuizComplete(false); setSharedProfile(null); }} style={{ fontSize: 11, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "3px 10px", cursor: "pointer" }}>
-            Demo: {newUser ? "New user" : "Returning user"} — tap to switch
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"24px 7px 6px",background:"linear-gradient(transparent,rgba(0,0,0,0.55))",display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={e=>{e.stopPropagation();setAdded(a=>!a);}} style={{width:"20px",height:"20px",borderRadius:"50%",background:added?"#A78BFA":"rgba(255,255,255,0.2)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"background 0.2s"}}>
+            {added?<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20,6 9,17 4,12"/></svg>:<Plus/>}
           </button>
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {showQuiz ? <QuizFlow onBack={() => setShowQuiz(false)} onComplete={handleQuizComplete} />
-            : showProfile ? <ProfileScreen newUser={newUser} sharedProfile={sharedProfile} setSharedProfile={setSharedProfile} />
-            : tab === "plan" ? <PlanScreen />
-            : <SleepScreen newUser={newUser} quizComplete={quizComplete} onStartQuiz={() => setShowQuiz(true)} onViewProfile={handleViewProfile} />}
+      </div>
+      <div style={{color:"rgba(255,255,255,0.75)",fontSize:"12px",fontWeight:500,lineHeight:"1.3"}}>{tile.title}</div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:"11px",marginTop:"2px"}}>{tile.sub}</div>
+    </div>
+  );
+};
+
+// ── Tab bar ────────────────────────────────────────────
+const tabs = [
+  {id:"sleep",label:"Sleep",icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg>},
+  {id:"plan",label:"Plan",icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>},
+];
+const TabBar = ({activeTab,setActiveTab}) => (
+  <div style={{position:"absolute",bottom:20,left:0,right:0,display:"flex",justifyContent:"center",alignItems:"center",zIndex:20}}>
+    <div style={{background:"rgba(255,255,255,0.08)",backdropFilter:"blur(40px) saturate(180%)",borderRadius:"999px",padding:"5px",display:"flex",gap:"2px",border:"1px solid rgba(255,255,255,0.14)",boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
+      {tabs.map(tab=>{
+        const active=tab.id===activeTab;
+        return (
+          <div key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{display:"flex",alignItems:"center",gap:"6px",padding:"9px 20px",borderRadius:"999px",background:active?"linear-gradient(160deg,rgba(255,255,255,0.28),rgba(255,255,255,0.12))":"transparent",border:active?"1px solid rgba(255,255,255,0.25)":"1px solid transparent",cursor:"pointer",transition:"all 0.35s cubic-bezier(0.34,1.56,0.64,1)"}}>
+            <span style={{color:active?"#fff":"rgba(255,255,255,0.4)",display:"flex",alignItems:"center"}}>{tab.icon}</span>
+            <span style={{color:active?"#fff":"rgba(255,255,255,0.4)",fontSize:"13px",fontWeight:active?600:400}}>{tab.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+// ── Sleep page ─────────────────────────────────────────
+const SleepPage = () => (
+  <div style={{position:"absolute",inset:0,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+    <div style={{position:"relative",background:"linear-gradient(180deg,#0a1628 0%,#0d1f3c 40%,#162040 100%)",minHeight:"380px",overflow:"hidden",flexShrink:0}}>
+      <div style={{position:"absolute",bottom:-60,left:"50%",transform:"translateX(-50%)",width:"280px",height:"280px",borderRadius:"50%",background:"radial-gradient(circle,rgba(210,180,130,0.55) 0%,rgba(180,140,90,0.2) 50%,transparent 75%)",filter:"blur(2px)"}}/>
+      <div style={{position:"absolute",bottom:-60,left:"50%",transform:"translateX(-50%)",width:"220px",height:"220px",borderRadius:"50%",background:"radial-gradient(circle,rgba(230,200,150,0.7) 0%,rgba(200,160,100,0.35) 55%,transparent 75%)"}}/>
+      <StatusBar/>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px 0"}}>
+        <div style={{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#e8a020,#c94040)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px"}}>🌙</div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"rgba(255,255,255,0.1)",borderRadius:"20px",padding:"6px 12px",cursor:"pointer"}}>
+          <span style={{color:"#fff",fontSize:"13px",fontWeight:600}}>Last night</span>
+          <ChevronDown/>
         </div>
-        <div style={{ flexShrink: 0, padding: "8px 0 0", background: C.card, borderTop: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <div style={{ display: "flex", background: C.cardInner, borderRadius: 24, padding: 4, border: `1px solid ${C.border}`, gap: 4 }}>
-              {[["sleep","🌙","Sleep"],["plan","📋","Plan"]].map(([key,icon,label]) => (
-                <button key={key} onClick={() => { setTab(key); setShowProfile(false); setShowQuiz(false); }} style={{ padding: "8px 28px", borderRadius: 20, fontSize: 13, fontWeight: 600, background: tab===key && !showProfile ? C.accent : "none", color: tab===key && !showProfile ? "#fff" : C.accentMid, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 15 }}>{icon}</span>{label}
-                </button>
-              ))}
+        <div style={{width:"32px",height:"32px",borderRadius:"50%",background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+      </div>
+      <div style={{padding:"24px 28px 100px",textAlign:"center"}}>
+        <p style={{color:"#fff",fontSize:"22px",fontWeight:700,lineHeight:"1.35",margin:0}}>
+          You only dream about faces you've seen.{" "}
+          <span style={{color:"#e8b86d"}}>Your brain can't invent new faces.</span>
+        </p>
+      </div>
+    </div>
+    <div style={{background:"rgba(14,24,48,0.98)",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",gap:"16px"}}>
+      <span style={{color:"#fff",fontSize:"15px",fontWeight:600}}>🌙 10:00 PM</span>
+      <span style={{color:"rgba(255,255,255,0.35)",fontSize:"13px"}}>Plan</span>
+      <span style={{color:"#fff",fontSize:"15px",fontWeight:600}}>7:00 AM ☀️</span>
+    </div>
+    <div style={{background:"rgba(14,24,48,0.98)",padding:"0 24px 20px",display:"flex",justifyContent:"center"}}>
+      <button style={{background:"none",border:"1.5px solid rgba(255,255,255,0.5)",borderRadius:"30px",padding:"12px 32px",color:"#fff",fontSize:"15px",fontWeight:500,cursor:"pointer"}}>See sleep details</button>
+    </div>
+    <div style={{background:"rgba(14,24,48,0.98)",padding:"0 24px 120px",flex:1}}>
+      <div style={{color:"#fff",fontSize:"17px",fontWeight:600,marginBottom:"14px"}}>Your sleep this week</div>
+      <div style={{background:"#4a3060",borderRadius:"18px",padding:"18px 18px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <span style={{color:"rgba(255,255,255,0.7)",fontSize:"11px",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Bedtime Playlist Sessions</span>
+        </div>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+          <div>
+            <div style={{color:"rgba(255,255,255,0.55)",fontSize:"12px",marginBottom:"4px"}}>Avg time to fall asleep</div>
+            <div style={{color:"#fff",fontSize:"32px",fontWeight:700}}>15m</div>
+          </div>
+          <div style={{display:"flex",gap:"8px"}}>
+            {["M","TU","W","TH","F","SA","SU"].map((d,i)=>(
+              <div key={d} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"4px"}}>
+                <div style={{width:"22px",height:"22px",borderRadius:"50%",background:i<2?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.2)"}}/>
+                <span style={{color:"rgba(255,255,255,0.4)",fontSize:"9px",fontWeight:600}}>{d}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{background:"#1e2e50",borderRadius:"18px",padding:"18px",marginTop:"12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{color:"rgba(255,255,255,0.5)",fontSize:"11px",fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"6px"}}>Sleep Duration</div>
+          <div style={{color:"#fff",fontSize:"28px",fontWeight:700}}>7h 42m</div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:"12px",marginTop:"4px"}}>↑ 23 min vs last week</div>
+        </div>
+        <svg width="60" height="40" viewBox="0 0 60 40"><polyline points="0,35 10,28 20,30 30,15 40,20 50,10 60,18" fill="none" stroke="#4ADE80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Now Playing sheet ──────────────────────────────────
+const playlist = [
+  {title:"Irreverent Meditations",sub:"Moonrise Horizon Light • 12 min",art:"linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)"},
+  {title:"Handpan Harmony",sub:"Golden Coast Light • 22 min",art:"linear-gradient(160deg,#7d5a1e,#c9812a,#e8a020)"},
+  {title:"i'll scroll 4 u",sub:"Lunar Dusk Light • 18 min",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+];
+
+const NowPlayingSheet = ({track,onClose,onPowerOff}) => {
+  const [volume,setVolume] = useState(54);
+  const [timer,setTimer] = useState(23);
+  const [isPlaying,setIsPlaying] = useState(true);
+  const [dragY,setDragY] = useState(0);
+  const [isDragging,setIsDragging] = useState(false);
+  const dragStart = useRef(null);
+  const art = playlist.find(p=>p.title===track)?.art || "linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)";
+  const onPD=e=>{e.currentTarget.setPointerCapture(e.pointerId);setIsDragging(true);dragStart.current=e.clientY;};
+  const onPM=e=>{if(!isDragging)return;setDragY(Math.max(0,e.clientY-dragStart.current));};
+  const onPU=()=>{setIsDragging(false);if(dragY>80){setDragY(0);onClose();}else setDragY(0);};
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",flexDirection:"column",justifyContent:"flex-end",pointerEvents:"none"}}>
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)",pointerEvents:"auto"}}/>
+      <div style={{position:"relative",background:"#0a1628",borderRadius:"28px 28px 44px 44px",overflow:"hidden",height:"686px",display:"flex",flexDirection:"column",transform:`translateY(${dragY}px)`,transition:isDragging?"none":"transform 0.3s cubic-bezier(0.32,0.72,0,1)",pointerEvents:"auto"}}>
+        <div onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU} onPointerCancel={onPU} style={{flexShrink:0,padding:"12px 0 0",display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",touchAction:"none"}}>
+          <div style={{width:"36px",height:"4px",borderRadius:"2px",background:"rgba(255,255,255,0.25)"}}/>
+        </div>
+        <div style={{position:"relative",height:"220px",background:art,flexShrink:0,overflow:"hidden",margin:"12px 16px 0",borderRadius:"16px"}}>
+          <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.2)"}}/>
+          <div style={{position:"absolute",top:12,left:0,right:0,display:"flex",justifyContent:"center"}}>
+            <div style={{background:"rgba(255,255,255,0.15)",borderRadius:"20px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",backdropFilter:"blur(10px)"}}>
+              <span style={{fontSize:"11px"}}>☁️</span>
+              <span style={{color:"rgba(255,255,255,0.9)",fontSize:"11px",fontWeight:600}}>Nicole's Sleep Machine</span>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 10px" }}>
-            <div style={{ width: 120, height: 4, background: C.cardInner, borderRadius: 2 }} />
+        </div>
+        <div style={{padding:"20px 28px 32px",display:"flex",flexDirection:"column",gap:"18px"}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",marginBottom:"4px"}}>
+              <div style={{width:"9px",height:"9px",borderRadius:"50%",background:"linear-gradient(135deg,#e8a020,#c94040)"}}/>
+              <span style={{color:"rgba(255,255,255,0.5)",fontSize:"12px"}}>Sunset Stargazing</span>
+            </div>
+            <div style={{color:"#fff",fontSize:"18px",fontWeight:700}}>{track||"Now Playing"}</div>
           </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"32px"}}>
+            <button style={{background:"none",border:"none",cursor:"pointer",opacity:0.7}}><svg width="26" height="26" viewBox="0 0 24 24" fill="white"><polygon points="19,20 9,12 19,4"/><rect x="5" y="4" width="3" height="16" fill="white"/></svg></button>
+            <button onClick={()=>setIsPlaying(p=>!p)} style={{width:"54px",height:"54px",borderRadius:"50%",background:"#fff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.4)"}}>
+              {isPlaying?<svg width="20" height="20" viewBox="0 0 24 24" fill="#0d1f3c"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>:<svg width="20" height="20" viewBox="0 0 24 24" fill="#0d1f3c"><polygon points="5,3 19,12 5,21"/></svg>}
+            </button>
+            <button style={{background:"none",border:"none",cursor:"pointer",opacity:0.7}}><svg width="26" height="26" viewBox="0 0 24 24" fill="white"><polygon points="5,4 15,12 5,20"/><rect x="16" y="4" width="3" height="16" fill="white"/></svg></button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <button onClick={()=>setVolume(v=>Math.max(0,v-1))} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:"18px"}}>−</button>
+            <div style={{flex:1,position:"relative",height:"36px",background:"rgba(255,255,255,0.1)",borderRadius:"18px",overflow:"hidden",cursor:"pointer"}} onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setVolume(Math.round(((e.clientX-r.left)/r.width)*100));}}>
+              <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${volume}%`,background:"rgba(255,255,255,0.9)",borderRadius:"18px",display:"flex",alignItems:"center",paddingLeft:"12px"}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#0d1f3c"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              </div>
+            </div>
+            <span style={{color:"rgba(255,255,255,0.4)",fontSize:"13px",width:"24px",textAlign:"center"}}>{volume}</span>
+            <button onClick={()=>setVolume(v=>Math.min(100,v+1))} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:"18px"}}>+</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <button onClick={()=>setTimer(v=>Math.max(0,v-1))} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:"18px"}}>−</button>
+            <div style={{flex:1,position:"relative",height:"36px",background:"rgba(255,255,255,0.1)",borderRadius:"18px",overflow:"hidden",cursor:"pointer"}} onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setTimer(Math.round(((e.clientX-r.left)/r.width)*60));}}>
+              <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${(timer/60)*100}%`,background:"rgba(255,255,255,0.15)",borderRadius:"18px",display:"flex",alignItems:"center",paddingLeft:"12px"}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
+              </div>
+            </div>
+            <span style={{color:"rgba(255,255,255,0.4)",fontSize:"13px",width:"24px",textAlign:"center"}}>{timer}</span>
+            <button onClick={()=>setTimer(v=>Math.min(60,v+1))} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:"18px"}}>+</button>
+          </div>
+          <div style={{display:"flex",justifyContent:"center"}}>
+            <button onClick={onPowerOff} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"30px",padding:"13px 32px",color:"rgba(255,255,255,0.8)",fontSize:"15px",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:"8px"}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+              Power Off
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Sheet page component (Reminders, Alarms) ───────────
+const remindersFilterTabs = [];
+const remindersSections = [
+  {label:"Popular Reminders", size:"list", items:[
+    {title:"Wind Down Alert",sub:"30 min before bedtime",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    {title:"Phone Down",sub:"45 min before bedtime",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+    {title:"Dim the Lights",sub:"20 min before bedtime",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+    {title:"Last Drink",sub:"60 min before bedtime",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+  ]},
+  {label:"Evening Rave Cues", size:"medium", items:[
+    {title:"Skincare Prompt",sub:"15 min before",art:"linear-gradient(160deg,#2b0d1a,#7a1f4a,#c94080)"},
+    {title:"Journal Time",sub:"20 min before",art:"linear-gradient(160deg,#111827,#1e3a5f,#4a7ab5)"},
+    {title:"Stretch Reminder",sub:"10 min before",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+    {title:"Meditation Cue",sub:"25 min before",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+  ]},
+  {label:"Soothing Bedtime Cues", size:"medium", items:[
+    {title:"Based on Tomorrow",sub:"Adaptive",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+    {title:"Weekend Mode",sub:"Fri & Sat",art:"linear-gradient(160deg,#1a1a0d,#4a4a1a,#9e9e2e)"},
+    {title:"Travel Adjusted",sub:"Time zone aware",art:"linear-gradient(160deg,#1f0d1a,#5c1a4a,#b82e8e)"},
+    {title:"Stress Detected",sub:"HRV triggered",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+  ]},
+  {label:"Zodiac Cues", size:"medium", items:[
+    {title:"Aries Wind Down",sub:"Fire sign reset",art:"linear-gradient(160deg,#3b0d0d,#8b1a1a,#d43a3a)"},
+    {title:"Taurus Unwind",sub:"Earth sign calm",art:"linear-gradient(160deg,#0d2b1a,#1a6e3a,#2eb86a)"},
+    {title:"Gemini Night Mode",sub:"Air sign balance",art:"linear-gradient(160deg,#1a1a0d,#5a5a1a,#a0a02e)"},
+    {title:"Cancer Moon Ritual",sub:"Water sign flow",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+  ]},
+];
+
+const ALARMS_CONTENT = {
+  "For You": [
+    {label:"New & Noteworthy", size:"large", items:[
+      {title:"Good Morning Islanders",sub:"Wake Sound • 8 min",art:"linear-gradient(160deg,#0d3b2a,#1a7a5a,#2ebfa0)"},
+      {title:"Great Gatsby Alarm",sub:"Sleep Story • Adjustable",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Morning Bloom",sub:"Wake Sound • 8 min",art:"linear-gradient(160deg,#0a1828,#1a3a5a,#2a5a8a)"},
+      {title:"Sunrise Drift",sub:"Alarm • 10 min",art:"linear-gradient(160deg,#1a2a4a,#0d1a3a,#2a4a6a)"},
+    ]},
+    {label:"Most popular alarms", size:"list", items:[
+      {title:"Meditative Flute",sub:"2.7k listeners",art:"linear-gradient(160deg,#0d1a3a,#1a3a6e,#3a6aaa)"},
+      {title:"Morning Chimes",sub:"2.3k listeners",art:"linear-gradient(160deg,#1a2a4a,#2a5a7a,#3a8aaa)"},
+      {title:"Morning Birds",sub:"1.8k listeners",art:"linear-gradient(160deg,#0a1828,#1a3a5a,#2a6a8a)"},
+    ]},
+    {label:"For Heavy Sleepers", size:"medium", items:[
+      {title:"Deep Rumble",sub:"22 min",art:"linear-gradient(160deg,#0d2b3a,#1a5c6e,#2a8a9e)"},
+      {title:"Bass Frequency",sub:"18 min",art:"linear-gradient(160deg,#1a1a3a,#2a2a6e,#3a3a9e)"},
+      {title:"Thunder Fade",sub:"15 min",art:"linear-gradient(160deg,#0d1a3a,#1a3a6e,#3a6aaa)"},
+    ]},
+  ],
+  "Nature": [
+    {label:"Wake with Nature", size:"large", items:[
+      {title:"Forest Dawn",sub:"Birds & light wind",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Coastal Breeze",sub:"Waves & wind",art:"linear-gradient(160deg,#061820,#0e4a60,#2ebfa0)"},
+      {title:"Rainfall",sub:"Steady rain",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Mountain Air",sub:"Wind through pines",art:"linear-gradient(160deg,#0d2b1a,#2a5c3a,#4a9e6a)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"Morning Birds",sub:"4.2k listeners",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Ocean Tide",sub:"3.1k listeners",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+      {title:"Creek Flow",sub:"2.8k listeners",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+    {label:"Seasonal Sounds", size:"medium", items:[
+      {title:"Spring Bloom",sub:"Birds & rain",art:"linear-gradient(160deg,#0d2b1a,#1a6e3a,#2eb86a)"},
+      {title:"Summer Cicadas",sub:"Warm evenings",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Autumn Leaves",sub:"Gentle rustling",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Winter Frost",sub:"Still & quiet",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+  ],
+  "Music": [
+    {label:"Gentle Wake Music", size:"large", items:[
+      {title:"Soft Piano",sub:"7:15 AM",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+      {title:"Handpan Harmony",sub:"Sound Bath • 22 min",art:"linear-gradient(160deg,#7d5a1e,#c9812a,#e8a020)"},
+      {title:"Acoustic Sunrise",sub:"Guitar • 10 min",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"String Quartet",sub:"Classical • 15 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    ]},
+    {label:"Popular right now", size:"list", items:[
+      {title:"Velvet Strings",sub:"3.5k listeners",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+      {title:"Jazz Morning",sub:"2.9k listeners",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Lo-Fi Sunrise",sub:"5.1k listeners",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+    {label:"Upbeat Wake-Ups", size:"medium", items:[
+      {title:"Morning Groove",sub:"Funk • 8 min",art:"linear-gradient(160deg,#3b0d0d,#8b1a1a,#d43a3a)"},
+      {title:"Soul Sunrise",sub:"Soul • 10 min",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Indie Rise",sub:"Indie • 7 min",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+      {title:"Bossa Nova AM",sub:"Bossa • 12 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+    ]},
+  ],
+  "Meditation": [
+    {label:"Mindful Mornings", size:"large", items:[
+      {title:"Sunrise Body Scan",sub:"Meditation • 12 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Morning Intention",sub:"Meditation • 8 min",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Breath Awakening",sub:"Breathwork • 10 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Gratitude Rise",sub:"Meditation • 6 min",art:"linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"Gentle Awakening",sub:"3.8k listeners",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Morning Clarity",sub:"3.2k listeners",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Calm Start",sub:"2.6k listeners",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    ]},
+    {label:"Breathwork to Wake", size:"medium", items:[
+      {title:"4-7-8 Morning",sub:"6 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Box Breath Rise",sub:"8 min",art:"linear-gradient(160deg,#1a1a0d,#4a4a1a,#9e9e2e)"},
+      {title:"Energise Breath",sub:"5 min",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+      {title:"Wim Hof Light",sub:"10 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+  ],
+  "Energetic": [
+    {label:"High Energy Wake-Ups", size:"large", items:[
+      {title:"Power Hour",sub:"Energetic • 5 min",art:"linear-gradient(160deg,#3b0d0d,#8b1a1a,#d43a3a)"},
+      {title:"Morning Hype",sub:"Energetic • 7 min",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Rise & Grind",sub:"Energetic • 6 min",art:"linear-gradient(160deg,#1a1a0d,#5a5a1a,#a0a02e)"},
+      {title:"Cold Plunge",sub:"Energetic • 4 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"Morning Run Mix",sub:"7.2k listeners",art:"linear-gradient(160deg,#3b0d0d,#8b1a1a,#d43a3a)"},
+      {title:"Workout Ignition",sub:"5.8k listeners",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Dopamine Boost",sub:"4.4k listeners",art:"linear-gradient(160deg,#1a1a0d,#5a5a1a,#a0a02e)"},
+    ]},
+    {label:"Quick Fire", size:"medium", items:[
+      {title:"60 Second Burst",sub:"1 min",art:"linear-gradient(160deg,#3b0d0d,#8b1a1a,#d43a3a)"},
+      {title:"3 Min Pump",sub:"3 min",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"5 Min Fire",sub:"5 min",art:"linear-gradient(160deg,#1a1a0d,#5a5a1a,#a0a02e)"},
+      {title:"10 Min Ignite",sub:"10 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+  ],
+};
+
+const CategorySheetPage = ({title, filterTabs: tabs, sections, contentByTab, gradientStart, onBack}) => {
+  const [activeFilter,setActiveFilter] = useState(tabs?.[0]||null);
+  const activeSections = contentByTab ? (contentByTab[activeFilter]||[]) : sections;
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:10,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+      <div onClick={onBack} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)"}}/>
+      <div style={{position:"relative",background:BG,borderRadius:"24px 24px 0 0",display:"flex",flexDirection:"column",height:"92%",overflow:"hidden"}}>
+        <div style={{background:`linear-gradient(180deg,${gradientStart} 0%,#1a1040 55%,transparent 100%)`,padding:"16px 20px 20px",flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:"14px"}}>
+            <div style={{width:"36px",height:"4px",borderRadius:"2px",background:"rgba(255,255,255,0.25)"}}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",marginBottom:tabs?.length?"16px":"0",position:"relative"}}>
+            <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",padding:"4px",position:"absolute",left:0}}><ChevronLeft/></button>
+            <span style={{color:"#fff",fontSize:"17px",fontWeight:700,flex:1,textAlign:"center"}}>{title}</span>
+          </div>
+          {tabs?.length>0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:"8px",justifyContent:"center"}}>
+              {tabs.map(tab=>{
+                const active=tab===activeFilter;
+                return <button key={tab} onClick={()=>setActiveFilter(tab)} style={{background:active?"#e8b86d":"rgba(255,255,255,0.08)",border:"none",borderRadius:"24px",padding:"9px 18px",color:active?"#0a0a1a":"rgba(255,255,255,0.7)",fontSize:"13px",fontWeight:active?600:400,cursor:"pointer",whiteSpace:"nowrap",transition:"all 0.2s"}}>{tab}</button>;
+              })}
+            </div>
+          )}
+        </div>
+        <div key={activeFilter} style={{flex:1,overflowY:"auto",padding:"8px 0 100px"}}>
+          {activeSections.map((section,i)=><SectionBlock key={i} section={section}/>)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Section renderer (shared) ──────────────────────────
+const SectionBlock = ({section}) => {
+  const w=section.size==="large"?200:160;
+  const h=section.size==="large"?130:100;
+  return (
+    <div style={{marginBottom:"24px"}}>
+      <div style={{color:"#fff",fontSize:"15px",fontWeight:700,padding:"0 20px",marginBottom:"12px"}}>{section.label}</div>
+      {section.size==="list"?(
+        <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:"10px"}}>
+          {section.items.map((item,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",cursor:"pointer"}}>
+              <div style={{width:"52px",height:"52px",borderRadius:"10px",background:item.art,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{color:"#fff",fontSize:"14px",fontWeight:600}}>{item.title}</div>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:"11px",marginTop:"2px"}}>{item.sub}</div>
+              </div>
+              <HeartButton/>
+            </div>
+          ))}
+        </div>
+      ):section.size==="portrait"?(
+        <div style={{display:"flex",gap:"12px",overflowX:"auto",padding:"0 20px 4px"}}>
+          {section.items.map((item,i)=>(
+            <div key={i} style={{flexShrink:0,width:"150px",cursor:"pointer"}}>
+              <div style={{width:"150px",height:"190px",borderRadius:"14px",background:item.art,position:"relative",overflow:"hidden",marginBottom:"8px"}}>
+                <HeartButton style={{position:"absolute",top:8,right:8}}/>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.85)",fontSize:"12px",fontWeight:600,lineHeight:"1.3"}}>{item.title}</div>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:"11px",marginTop:"3px"}}>{item.sub}</div>
+            </div>
+          ))}
+          <div style={{width:"8px",flexShrink:0}}/>
+        </div>
+      ):(
+        <div style={{display:"flex",gap:"12px",overflowX:"auto",padding:"0 20px 4px"}}>
+          {section.items.map((item,i)=>(
+            <div key={i} style={{flexShrink:0,width:`${w}px`,cursor:"pointer"}}>
+              <div style={{width:`${w}px`,height:`${h}px`,borderRadius:"12px",background:item.art,marginBottom:"7px",position:"relative",overflow:"hidden"}}>
+                <HeartButton style={{position:"absolute",top:7,right:7}}/>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.85)",fontSize:"12px",fontWeight:600,lineHeight:"1.3"}}>{item.title}</div>
+              <div style={{color:"rgba(255,255,255,0.35)",fontSize:"11px",marginTop:"2px"}}>{item.sub}</div>
+            </div>
+          ))}
+          <div style={{width:"8px",flexShrink:0}}/>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Bedtime Playlist page data (one entry per pill) ────
+const PLAYLIST_TABS = ["For You","Meditations & Mindfulness","Music & Sound baths","Bedtime podcasts","Stories","ASMR","Sleep sounds"];
+
+const PLAYLIST_CONTENT = {
+  "For You": [
+    {label:"New & Noteworthy", size:"large", items:[
+      {title:"Irreverent Meditations",sub:"Meditation • 12 min",art:"linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)"},
+      {title:"The Nightly",sub:"Bedtime Podcast • 15 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Handpan Harmony",sub:"Sound Bath • 22 min",art:"linear-gradient(160deg,#7d5a1e,#c9812a,#e8a020)"},
+      {title:"Drift Into Sleep",sub:"Sleep Sound • 30 min",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+    ]},
+    {label:"Top sleep sounds", size:"list", items:[
+      {title:"Heavy Rain",sub:"2.1k listeners",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Calm Ocean",sub:"1.8k listeners",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+      {title:"White Noise",sub:"10k listeners",art:"linear-gradient(160deg,#1a1a1a,#3a3a3a,#6a6a6a)"},
+    ]},
+    {label:"For unraveling all your stress", size:"medium", items:[
+      {title:"Breathwork at Griffith Park",sub:"Meditation • 22 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Breathing In Nature",sub:"Meditation • 15 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Body Scan",sub:"Meditation • 12 min",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+      {title:"Letting Go",sub:"Meditation • 8 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    ]},
+  ],
+  "Meditations & Mindfulness": [
+    {label:"Body Scans and Breathwork", size:"medium", items:[
+      {title:"Nervous System Rest",sub:"Meditation • 5 min",art:"linear-gradient(160deg,#2a1a3a,#7a3a6a,#c45e8e)"},
+      {title:"Bed Stretch",sub:"Meditation • 8 min",art:"linear-gradient(160deg,#1a1a2a,#3a3a5a,#6a6a9a)"},
+      {title:"4-7-8 Reset",sub:"Breathwork • 8 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Body Scan",sub:"Meditation • 12 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    ]},
+    {label:"Mindfulness", size:"medium", items:[
+      {title:"Guided Meditations for Stressy Days",sub:"Meditation • 22 min",art:"linear-gradient(160deg,#2a1a2a,#5a2a4a,#8a4a6a)"},
+      {title:"Irreverent Meditations",sub:"Meditation • 18 min",art:"linear-gradient(160deg,#1a1a3a,#3a2a6a,#6a4aaa)"},
+      {title:"Still Waters",sub:"Meditation • 14 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Letting Go",sub:"Meditation • 8 min",art:"linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)"},
+    ]},
+  ],
+  "Music & Sound baths": [
+    {label:"Featured Sound Baths", size:"large", items:[
+      {title:"Handpan Harmony",sub:"Sound Bath • 22 min",art:"linear-gradient(160deg,#7d5a1e,#c9812a,#e8a020)"},
+      {title:"Tibetan Bowl",sub:"Sound Bath • 30 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+      {title:"Crystal Singing",sub:"Sound Bath • 25 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Gong Bath",sub:"Sound Bath • 40 min",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+    ]},
+    {label:"Popular right now", size:"list", items:[
+      {title:"Soft Piano Lullaby",sub:"3.2k listeners",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+      {title:"Deep Frequency Tones",sub:"1.5k listeners",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+      {title:"Velvet Strings",sub:"2.8k listeners",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    ]},
+    {label:"Sleep Frequencies", size:"medium", items:[
+      {title:"Delta Waves",sub:"45 min",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+      {title:"Theta Journey",sub:"30 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Alpha Calm",sub:"20 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+      {title:"Binaural Drift",sub:"60 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    ]},
+  ],
+  "Bedtime podcasts": [
+    {label:"New Episodes", size:"large", items:[
+      {title:"The Nightly",sub:"Bedtime Podcast • 15 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Night Owls",sub:"Bedtime Podcast • 20 min",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#6e44ad)"},
+      {title:"Sleepy Time Stories",sub:"Podcast • 18 min",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Pillow Talk",sub:"Podcast • 12 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"The Mighty",sub:"4.1k listeners",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Wind Down Radio",sub:"3.6k listeners",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Dream Diaries",sub:"2.9k listeners",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    ]},
+    {label:"Short & Sweet", size:"medium", items:[
+      {title:"5-Min Wind Down",sub:"5 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+      {title:"Micro Meditation",sub:"4 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Quick Calm",sub:"6 min",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+      {title:"One Breath",sub:"3 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+    ]},
+  ],
+  "Stories": [
+    {label:"Bedtime Stories", size:"large", items:[
+      {title:"The Great Gatsby",sub:"Sleep Story • Adjustable",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Little Women",sub:"Sleep Story • Adjustable",art:"linear-gradient(160deg,#2b0d1a,#7a1f4a,#c94080)"},
+      {title:"Enchanted Garden",sub:"Sleep Story • 35 min",art:"linear-gradient(160deg,#061820,#0e4a60,#2ebfa0)"},
+      {title:"Midnight Forest",sub:"Sleep Story • 28 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+    ]},
+    {label:"Most loved", size:"list", items:[
+      {title:"The Velveteen Rabbit",sub:"5.2k listeners",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Around the World",sub:"4.4k listeners",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Starlight Tales",sub:"3.1k listeners",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    ]},
+    {label:"Immersive Worlds", size:"medium", items:[
+      {title:"Coastal Village",sub:"Sleep Story • 40 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+      {title:"Alpine Retreat",sub:"Sleep Story • 35 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Desert Night",sub:"Sleep Story • 30 min",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Northern Lights",sub:"Sleep Story • 45 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+  ],
+  "ASMR": [
+    {label:"Trending ASMR", size:"large", items:[
+      {title:"Soft Tapping",sub:"ASMR • 30 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+      {title:"Whispering Winds",sub:"ASMR • 45 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+      {title:"Page Turning",sub:"ASMR • 25 min",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Rain on Leaves",sub:"ASMR • 60 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"Gentle Keyboard",sub:"6.7k listeners",art:"linear-gradient(160deg,#111827,#1e3a5f,#4a7ab5)"},
+      {title:"Crackling Fire",sub:"5.9k listeners",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+      {title:"Ocean Pebbles",sub:"4.2k listeners",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+    ]},
+    {label:"Textures & Tingles", size:"medium", items:[
+      {title:"Velvet Touch",sub:"ASMR • 20 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+      {title:"Sand Whispers",sub:"ASMR • 35 min",art:"linear-gradient(160deg,#2b1a0d,#c9812a,#e8d080)"},
+      {title:"Silk & Glass",sub:"ASMR • 28 min",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Brush Strokes",sub:"ASMR • 22 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    ]},
+  ],
+  "Sleep sounds": [
+    {label:"Fan Favourites", size:"large", items:[
+      {title:"Heavy Rain",sub:"Sleep Sound • Adjustable",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+      {title:"Deep Delta",sub:"Sleep Sound • 45 min",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+      {title:"Night Rain",sub:"Sleep Sound • 30 min",art:"linear-gradient(160deg,#111827,#1e3a5f,#4a7ab5)"},
+      {title:"Ocean Floor",sub:"Sleep Sound • 60 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+    ]},
+    {label:"Most listened", size:"list", items:[
+      {title:"White Noise",sub:"10k listeners",art:"linear-gradient(160deg,#1a1a1a,#3a3a3a,#6a6a6a)"},
+      {title:"Brown Noise",sub:"7.3k listeners",art:"linear-gradient(160deg,#2b1a0d,#6e4a2d,#c49e5e)"},
+      {title:"Pink Noise",sub:"5.1k listeners",art:"linear-gradient(160deg,#2b0d1a,#7a1f4a,#c94080)"},
+    ]},
+    {label:"Nature Sounds", size:"medium", items:[
+      {title:"Forest Dawn",sub:"Birds & light wind",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+      {title:"Coastal Breeze",sub:"Waves & wind",art:"linear-gradient(160deg,#061820,#0e4a60,#2ebfa0)"},
+      {title:"Thunderstorm",sub:"Deep rumbles",art:"linear-gradient(160deg,#111827,#1e3a5f,#4a7ab5)"},
+      {title:"Creek Flow",sub:"Babbling water",art:"linear-gradient(160deg,#0d1a2b,#1a3a6e,#3a6ecc)"},
+    ]},
+  ],
+};
+
+// ── Bedtime Playlist browse page ───────────────────────
+const PlaylistBrowsePage = ({onBack}) => {
+  const [activeTab, setActiveTab] = useState("For You");
+  const sections = PLAYLIST_CONTENT[activeTab] || [];
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:10,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+      <div onClick={onBack} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)"}}/>
+      <div style={{position:"relative",background:BG,borderRadius:"24px 24px 0 0",display:"flex",flexDirection:"column",height:"92%",overflow:"hidden"}}>
+        <div style={{background:"linear-gradient(180deg,#3b1f82 0%,#1e1245 55%,transparent 100%)",padding:"16px 20px 20px",flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:"14px"}}>
+            <div style={{width:"36px",height:"4px",borderRadius:"2px",background:"rgba(255,255,255,0.25)"}}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",marginBottom:"16px",position:"relative"}}>
+            <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",padding:"4px",position:"absolute",left:0}}><ChevronLeft/></button>
+            <span style={{color:"#fff",fontSize:"17px",fontWeight:700,flex:1,textAlign:"center"}}>Bedtime playlist</span>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"8px",justifyContent:"center"}}>
+            {PLAYLIST_TABS.map(tab=>{
+              const active = tab===activeTab;
+              return (
+                <button key={tab} onClick={()=>setActiveTab(tab)} style={{background:active?"#8b5cf6":"rgba(255,255,255,0.08)",border:"none",borderRadius:"24px",padding:"9px 18px",color:active?"#fff":"rgba(255,255,255,0.7)",fontSize:"13px",fontWeight:active?600:400,cursor:"pointer",whiteSpace:"nowrap",transition:"all 0.2s"}}>{tab}</button>
+              );
+            })}
+          </div>
+        </div>
+        <div key={activeTab} style={{flex:1,overflowY:"auto",padding:"8px 0 100px"}}>
+          {sections.map((section,i)=><SectionBlock key={i} section={section}/>)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Plan page ──────────────────────────────────────────
+const featuredTiles = [
+  {title:"Sherlock Holmes",label:"Story",sub:"35 min",art:"linear-gradient(160deg,#1a1208,#3d2e10,#7a5c20)"},
+  {title:"Moonlight Jazz Soundbaths",label:"Sound",sub:"22 min",art:"linear-gradient(160deg,#0d1a2b,#1a2d4a,#2a4a7a)"},
+  {title:"i'll scroll 4 u",label:"Sleep Mix",sub:"18 min",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+  {title:"Deep Delta Waves",label:"Soundscape",sub:"45 min",art:"linear-gradient(160deg,#0d3b47,#1a7a6e,#2ebfa0)"},
+];
+
+const exampleRows = [
+  ["something to quiet a racing mind","deep sleep for a stressful week","no talking, just gentle sound","fall back asleep at 3am","short wind-down, 10 minutes"],
+  ["guided meditation","breathwork","soundscape","sleep music","body scan","delta waves","ease tension in my body"],
+];
+
+const resultRows = [
+  {label:"Best Matches",items:[
+    {title:"Letting Go",sub:"8 min",art:"linear-gradient(160deg,#3a1c6e,#c0392b,#e67e22)"},
+    {title:"Worry Release",sub:"6 min",art:"linear-gradient(160deg,#0d2b1a,#1a5c3a,#2e9e6a)"},
+    {title:"Still Waters",sub:"14 min",art:"linear-gradient(160deg,#1a1a2e,#2d2d5e,#8e44ad)"},
+    {title:"Soft Landing",sub:"10 min",art:"linear-gradient(160deg,#0d1f1a,#1a5c4a,#2eb89e)"},
+  ]},
+  {label:"Guided Meditations",items:[
+    {title:"Body Scan",sub:"12 min",art:"linear-gradient(160deg,#1a0d2b,#4a2d6e,#8e5ec4)"},
+    {title:"Release & Rest",sub:"15 min",art:"linear-gradient(160deg,#2b0d0d,#7a1f1f,#c94040)"},
+    {title:"Empty Mind",sub:"9 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+    {title:"Calm Unwind",sub:"11 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+  ]},
+  {label:"Soundscapes",items:[
+    {title:"Night Rain",sub:"30 min",art:"linear-gradient(160deg,#111827,#1e3a5f,#4a7ab5)"},
+    {title:"Deep Delta",sub:"45 min",art:"linear-gradient(160deg,#0a0a1a,#1a1a4e,#2e2e8e)"},
+    {title:"Velvet Dark",sub:"40 min",art:"linear-gradient(160deg,#1a1218,#3d1f38,#7a3a6a)"},
+    {title:"Ocean Floor",sub:"60 min",art:"linear-gradient(160deg,#061820,#0e4a60,#1a8a9e)"},
+  ]},
+];
+
+const PlanPage = ({onPlay,nowPlaying}) => {
+  const [sheetPos,setSheetPos] = useState(PEEK);
+  const [isDragging,setIsDragging] = useState(false);
+  const dragStart = useRef(null);
+  const posAtDrag = useRef(PEEK);
+  const [query,setQuery] = useState("");
+  const [focused,setFocused] = useState(false);
+  const [loading,setLoading] = useState(false);
+  const [results,setResults] = useState(null);
+  const [showPlaylistBrowse,setShowPlaylistBrowse] = useState(false);
+  const [showReminders,setShowReminders] = useState(false);
+  const [showAlarms,setShowAlarms] = useState(false);
+  const phoneH = 780;
+
+  const getSnap = pos=>[PEEK,FULL].reduce((a,b)=>Math.abs(b-pos)<Math.abs(a-pos)?b:a);
+  const onPointerDown=e=>{e.currentTarget.setPointerCapture(e.pointerId);setIsDragging(true);dragStart.current=e.clientY;posAtDrag.current=sheetPos;};
+  const onPointerMove=e=>{if(!isDragging)return;const dy=dragStart.current-e.clientY;setSheetPos(Math.max(PEEK-0.02,Math.min(FULL+0.02,posAtDrag.current+dy/phoneH)));};
+  const onPointerUp=e=>{setIsDragging(false);const didDrag=Math.abs(e.clientY-dragStart.current)>4;if(!didDrag){setSheetPos(prev=>prev<(PEEK+FULL)/2?FULL:PEEK);}else{setSheetPos(getSnap(sheetPos));}};
+  const doSearch=q=>{if(!q.trim())return;setSheetPos(FULL);setLoading(true);setResults(null);setTimeout(()=>{setLoading(false);setResults(true);},1500);};
+  const pickExample=q=>{setQuery(q);doSearch(q);};
+  const reset=()=>{setQuery("");setResults(null);setFocused(false);};
+  const handleSearchFocus=()=>{setFocused(true);if(sheetPos<=PEEK+0.02)setSheetPos(FULL);};
+
+  const sheetTop=phoneH*(1-sheetPos);
+  const overlayOpacity=Math.max(0,(sheetPos-PEEK)/(FULL-PEEK))*0.55;
+
+  return (
+    <>
+      {showPlaylistBrowse&&<PlaylistBrowsePage onBack={()=>setShowPlaylistBrowse(false)}/>}
+      {showReminders&&<CategorySheetPage title="Bedtime reminders" filterTabs={[]} sections={remindersSections} gradientStart="#0d1a3a" onBack={()=>setShowReminders(false)}/>}
+      {showAlarms&&<CategorySheetPage title="Alarms" filterTabs={Object.keys(ALARMS_CONTENT)} contentByTab={ALARMS_CONTENT} sections={[]} gradientStart="#2a1a08" onBack={()=>setShowAlarms(false)}/>}
+      <div style={{position:"absolute",inset:0,overflowY:"auto"}}>
+        <StatusBar/>
+        <div style={{padding:"24px 24px 0"}}>
+          <h1 style={{color:"#fff",fontSize:"30px",fontWeight:700,margin:0}}>Tonight's plan</h1>
+        </div>
+        <div style={{padding:"20px 24px 0",display:"flex",gap:"12px"}}>
+          {[{label:"Bedtime",time:"10:00 PM",sub:"Reminder at 9:30 PM",dot:"#4ADE80"},{label:"Wake time",time:"7:00 AM",sub:"Sunrise at 6:30 AM",dot:"#FBBF78"}].map((item,i)=>(
+            <div key={i} style={{flex:1,background:CARD,borderRadius:"16px",padding:"10px 12px",cursor:"pointer"}}>
+              <div style={{color:"rgba(255,255,255,0.5)",fontSize:"11px",marginBottom:"4px"}}>{item.label}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"4px"}}>
+                <span style={{color:"#fff",fontSize:"18px",fontWeight:700}}>{item.time}</span>
+                <ChevronRight/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:"5px"}}>
+                <div style={{width:"6px",height:"6px",borderRadius:"50%",background:item.dot}}/>
+                <span style={{color:"rgba(255,255,255,0.4)",fontSize:"11px"}}>{item.sub}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{padding:"20px 24px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{color:"rgba(255,255,255,0.55)",fontSize:"15px"}}>Bedtime playlist</span>
+          <button style={{background:"#fff",border:"none",borderRadius:"24px",padding:"10px 20px",display:"flex",alignItems:"center",gap:"7px",cursor:"pointer",fontWeight:700,fontSize:"15px",color:"#0A0F1E"}}><PlayFill/> Start</button>
+        </div>
+        <div style={{padding:"0 24px",paddingBottom:`${phoneH*PEEK+24}px`}}>
+          {playlist.map((item,i)=>(
+            <div key={i} onClick={()=>onPlay(nowPlaying===item.title?null:item.title)} style={{background:nowPlaying===item.title?"rgba(167,139,250,0.15)":CARD,borderRadius:"14px",padding:"8px 12px",display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px",cursor:"pointer",border:`1px solid ${nowPlaying===item.title?"rgba(167,139,250,0.35)":"transparent"}`,transition:"all 0.2s"}}>
+              <div style={{width:"42px",height:"42px",borderRadius:"8px",background:item.art,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {nowPlaying===item.title&&<Equalizer/>}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{color:"#fff",fontSize:"15px",fontWeight:600,marginBottom:"3px"}}>{item.title}</div>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:"12px"}}>{item.sub}</div>
+              </div>
+              <ChevronRight/>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"130px",background:`linear-gradient(to top,${SHEET_BG}bf 0%,${SHEET_BG}cc 30%,${SHEET_BG}66 60%,transparent 100%)`,zIndex:10,pointerEvents:"none",borderRadius:"0 0 44px 44px"}}/>
+      <div style={{position:"absolute",inset:0,background:`rgba(3,8,16,${overlayOpacity})`,pointerEvents:overlayOpacity>0.05?"auto":"none",transition:isDragging?"none":"background 0.3s",zIndex:2}} onClick={()=>setSheetPos(PEEK)}/>
+      <div style={{position:"absolute",left:0,right:0,top:`${sheetTop}px`,height:`${phoneH*FULL+60}px`,background:SHEET_BG,borderRadius:"24px 24px 0 0",transition:isDragging?"none":"top 0.38s cubic-bezier(0.32,0.72,0,1)",boxShadow:"0 -8px 40px rgba(0,0,0,0.5)",zIndex:3}}>
+        <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} style={{position:"absolute",top:0,left:0,right:0,height:"28px",display:"flex",alignItems:"center",justifyContent:"center",touchAction:"none",cursor:"grab",zIndex:2}}>
+          <div style={{width:"36px",height:"4px",borderRadius:"2px",background:"rgba(255,255,255,0.2)"}}/>
+        </div>
+        <div style={{position:"absolute",top:"28px",left:0,right:0,bottom:0,overflowY:"auto",overflowX:"hidden"}}>
+          <div style={{padding:"8px 24px 140px"}}>
+            {!results&&!loading&&<div style={{display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px"}}>
+              <span style={{color:"rgba(255,255,255,0.7)",fontSize:"14px",fontWeight:600,flex:1}}>Explore the Hatch Library</span>
+              <span style={{background:"rgba(167,139,250,0.2)",color:"#A78BFA",fontSize:"10px",fontWeight:700,padding:"2px 7px",borderRadius:"20px",letterSpacing:"0.05em"}}>BETA</span>
+            </div>}
+            <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"20px"}}>
+              {results&&<button onClick={reset} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",flexShrink:0,padding:"4px 0"}}><ChevronLeft/></button>}
+              <div style={{flex:1,minWidth:0,background:"rgba(255,255,255,0.07)",borderRadius:"14px",border:`1px solid ${focused?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`,padding:"13px 16px 12px",transition:"border-color 0.2s",overflow:"hidden"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:query?0:"13px"}}>
+                <Sparkle/>
+                <input value={query} onChange={e=>{setQuery(e.target.value);setResults(null);}} onFocus={handleSearchFocus} onBlur={()=>{if(!query)setFocused(false);}} onKeyDown={e=>e.key==="Enter"&&doSearch(query)} placeholder="How do you want to feel tonight?" style={{flex:1,background:"none",border:"none",outline:"none",color:"#fff",fontSize:"15px",caretColor:"#A78BFA"}}/>
+                {query&&<button onClick={()=>doSearch(query)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",padding:"2px"}}><ArrowRight/></button>}
+              </div>
+              {!query&&(
+                <div style={{margin:"0 -16px",overflowX:"auto",display:"flex",flexDirection:"column",gap:"8px",padding:"0 16px 2px",touchAction:"pan-x"}}>
+                  {exampleRows.map((row,ri)=>(
+                    <div key={ri} style={{display:"flex",gap:"7px",width:"max-content"}}>
+                      {row.map((ex,i)=>(
+                        <button key={i} onClick={()=>pickExample(ex)} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"20px",padding:"6px 12px",flexShrink:0,cursor:"pointer",whiteSpace:"nowrap",color:"rgba(255,255,255,0.5)",fontSize:"11px",touchAction:"manipulation"}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(167,139,250,0.35)"}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"}
+                        >{ex}</button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              </div>
+            </div>
+            {loading&&<div style={{display:"flex",alignItems:"center",gap:"10px",padding:"14px 16px",background:"rgba(255,255,255,0.05)",borderRadius:"14px",marginTop:"8px"}}><div style={{display:"flex",gap:"5px"}}>{[0,1,2].map(i=><div key={i} style={{width:"5px",height:"5px",borderRadius:"50%",background:"#A78BFA",animation:`pulse 1.1s ease-in-out ${i*0.18}s infinite`}}/>)}</div><span style={{color:"rgba(255,255,255,0.4)",fontSize:"14px"}}>Finding content for you…</span></div>}
+            {results&&!loading&&(
+              <>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:"12px",marginBottom:"12px"}}>Results for <span style={{color:"#fff",fontWeight:600}}>"{query}"</span></div>
+                {resultRows.map((row,i)=><CarouselRow key={i} label={row.label} items={row.items}/>)}
+              </>
+            )}
+            {!results&&!loading&&(
+              <>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"10px"}}>
+                  {[
+                    {label:"Bedtime reminders",onClick:()=>setShowReminders(true),bg:"linear-gradient(160deg,#0d1a3a,#1a2d5a)",deco:"linear-gradient(135deg,#a0c4ff,#c084fc,#67e8f9)"},
+                    {label:"Alarms",onClick:()=>setShowAlarms(true),bg:"linear-gradient(160deg,#2a1a08,#7a4010)",deco:"linear-gradient(135deg,#fcd34d,#f59e0b,#b45309)"},
+                  ].map((item,i)=>(
+                    <div key={i} onClick={item.onClick} style={{borderRadius:"16px",background:item.bg,padding:"14px 12px",cursor:"pointer",position:"relative",overflow:"hidden",minHeight:"90px",display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+                      <div style={{position:"absolute",top:-10,right:-10,width:"70px",height:"70px",borderRadius:"12px",background:item.deco,opacity:0.7,transform:"rotate(15deg)"}}/>
+                      <div style={{position:"absolute",top:6,right:6,width:"44px",height:"44px",borderRadius:"8px",background:"rgba(255,255,255,0.12)",backdropFilter:"blur(6px)"}}/>
+                      <div style={{position:"relative",zIndex:1,display:"flex",alignItems:"center",gap:"4px"}}>
+                        <div style={{color:"#fff",fontSize:"13px",fontWeight:700,lineHeight:"1.3"}}>{item.label}</div>
+                        <ChevronRight/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div onClick={()=>setShowPlaylistBrowse(true)} style={{borderRadius:"16px",background:"linear-gradient(160deg,#3b1f82,#6d35c9,#8b5cf6)",padding:"18px 16px",cursor:"pointer",position:"relative",overflow:"hidden",marginBottom:"20px",display:"flex",alignItems:"center",gap:"12px"}}>
+                  <div style={{position:"absolute",top:-20,right:-20,width:"110px",height:"110px",borderRadius:"50%",background:"rgba(167,139,250,0.18)"}}/>
+                  <div style={{flex:1,position:"relative",zIndex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"5px"}}>
+                      <span style={{color:"#fff",fontSize:"15px",fontWeight:700}}>For your bedtime playlist</span>
+                      <ChevronRight/>
+                    </div>
+                    <div style={{color:"rgba(255,255,255,0.55)",fontSize:"12px",lineHeight:"1.4"}}>Explore meditations, music, sleep sounds, and more</div>
+                  </div>
+                  <div style={{width:"64px",height:"64px",borderRadius:"12px",background:"linear-gradient(160deg,#7c3aed,#c026d3)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"26px",position:"relative",zIndex:1}}>🌙</div>
+                </div>
+                <div style={{margin:"0 -24px",paddingLeft:"24px"}}>
+                  <div style={{color:"#fff",fontSize:"16px",fontWeight:700,marginBottom:"12px"}}>Featured</div>
+                  <div style={{display:"flex",gap:"12px",overflowX:"auto",paddingBottom:"4px"}}>
+                    {featuredTiles.map((tile,i)=><FeaturedTile key={i} tile={tile}/>)}
+                    <div style={{width:"24px",flexShrink:0}}/>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── App root ───────────────────────────────────────────
+function App() {
+  const [activeTab,setActiveTab] = useState("sleep");
+  const [nowPlaying,setNowPlaying] = useState(null);
+  const [nowPlayingOpen,setNowPlayingOpen] = useState(false);
+  return (
+    <div style={{display:"flex",justifyContent:"center",padding:"24px 16px",minHeight:"100vh",alignItems:"center"}}>
+      <div style={{width:"375px",height:"780px",background:BG,borderRadius:"44px",overflow:"hidden",boxShadow:"0 40px 100px rgba(0,0,0,0.8)",border:"1px solid rgba(255,255,255,0.05)",position:"relative"}}>
+        {activeTab==="sleep"&&<SleepPage/>}
+        {activeTab==="plan"&&<PlanPage onPlay={setNowPlaying} nowPlaying={nowPlaying}/>}
+        <TabBar activeTab={activeTab} setActiveTab={setActiveTab}/>
+        <button onClick={()=>setNowPlayingOpen(true)} style={{position:"absolute",bottom:20,right:20,width:"46px",height:"46px",borderRadius:"50%",background:"rgba(255,255,255,0.08)",backdropFilter:"blur(40px)",border:"1px solid rgba(167,139,250,0.3)",boxShadow:"0 8px 32px rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",opacity:nowPlaying&&!nowPlayingOpen?1:0,transform:nowPlaying&&!nowPlayingOpen?"scale(1)":"scale(0.7)",transition:"opacity 0.3s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)",pointerEvents:nowPlaying&&!nowPlayingOpen?"auto":"none",zIndex:60}}>
+          <Equalizer/>
+        </button>
+        <div style={{position:"absolute",inset:0,borderRadius:"44px",overflow:"hidden",transform:nowPlayingOpen?"translateY(0)":"translateY(105%)",transition:"transform 0.45s cubic-bezier(0.32,0.72,0,1)",zIndex:55,pointerEvents:nowPlayingOpen?"auto":"none"}}>
+          <NowPlayingSheet track={nowPlaying} onClose={()=>setNowPlayingOpen(false)} onPowerOff={()=>{setNowPlayingOpen(false);setNowPlaying(null);}}/>
         </div>
       </div>
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
