@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hatch Profile Prototype</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e8e8e8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  button { font-family: inherit; }
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const C = {
+  pageBg: "#e8e8e8", phoneBg: "#f5f5f5", card: "#ffffff", cardInner: "#f0f0f0",
+  text: "#111111", muted: "rgba(0,0,0,0.4)", dim: "rgba(0,0,0,0.25)", faint: "rgba(0,0,0,0.1)",
+  border: "rgba(0,0,0,0.1)", borderHi: "rgba(0,0,0,0.18)", accent: "#222222",
+  accentMid: "#555555", accentSoft: "rgba(0,0,0,0.06)", accentBorder: "rgba(0,0,0,0.2)",
+  purple: "#444444", amber: "#444444",
+};
+
+const glass = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, ...extra });
+
+function Sunrise() {
+  return (
+    <div style={{ width: "100%", height: 180, overflow: "hidden", position: "relative", background: C.phoneBg }}>
+      <svg viewBox="0 0 375 180" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+        <defs>
+          <radialGradient id="sunGlow" cx="50%" cy="100%" r="70%">
+            <stop offset="0%" stopColor="#aaaaaa" stopOpacity="0.5" />
+            <stop offset="40%" stopColor="#cccccc" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#f5f5f5" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="domeGrad" cx="50%" cy="100%" r="80%">
+            <stop offset="0%" stopColor="#888888" stopOpacity="0.3" />
+            <stop offset="60%" stopColor="#bbbbbb" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#dddddd" stopOpacity="0" />
+          </radialGradient>
+          <filter id="gblur"><feGaussianBlur stdDeviation="10" /></filter>
+          <filter id="sblur"><feGaussianBlur stdDeviation="4" /></filter>
+        </defs>
+        <ellipse cx="187.5" cy="182" rx="260" ry="160" fill="url(#sunGlow)" filter="url(#gblur)" />
+        <path d="M 20 180 A 167.5 167.5 0 0 1 355 180 Z M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill="rgba(0,0,0,0.07)" fillRule="evenodd" />
+        <path d="M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill={C.phoneBg} />
+        <path d="M 70 180 A 117.5 117.5 0 0 1 305 180 Z" fill="url(#domeGrad)" />
+        {[30,60,90,120,150].map((a,i) => {
+          const rad = (a*Math.PI)/180;
+          return <line key={i} x1="187.5" y1="180" x2={187.5+Math.cos(Math.PI-rad)*160} y2={180-Math.sin(rad)*160} stroke="rgba(0,0,0,0.03)" strokeWidth="28" />;
+        })}
+        <circle cx="187.5" cy="180" r="22" fill="#999999" opacity="0.2" filter="url(#sblur)" />
+        <circle cx="187.5" cy="180" r="9" fill="#555555" opacity="0.5" />
+      </svg>
+    </div>
+  );
+}
+
+const Sheet = ({ title, onClose, children }) => (
+  <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 30 }} onClick={onClose}>
+    <div onClick={e => e.stopPropagation()} style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#f9f9f9", borderRadius: "24px 24px 0 0", padding: "16px 20px 44px", maxHeight: "85%", overflowY: "auto", border: `1px solid ${C.border}`, boxShadow: "0 -4px 30px rgba(0,0,0,0.12)" }}>
+      <div style={{ width: 36, height: 4, background: "rgba(0,0,0,0.15)", borderRadius: 2, margin: "0 auto 16px" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <span style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{title}</span>
+        <button onClick={onClose} style={{ background: "rgba(0,0,0,0.06)", border: `1px solid ${C.border}`, borderRadius: "50%", width: 28, height: 28, color: C.muted, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+const OptionList = ({ options, selected, multi, onToggle }) => {
+  const [local, setLocal] = useState(selected ?? (multi ? [] : null));
+  const toggle = opt => { if (multi) setLocal(l => (l||[]).includes(opt) ? l.filter(s=>s!==opt) : [...(l||[]),opt]); else setLocal(opt); };
+  return (
+    <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {options.map(opt => {
+          const on = multi ? (local||[]).includes(opt) : local === opt;
+          return <button key={opt} onClick={() => toggle(opt)} style={{ padding: "13px 16px", borderRadius: 14, fontSize: 15, textAlign: "left", background: on ? "rgba(0,0,0,0.08)" : C.card, color: on ? C.accent : C.text, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: on ? 600 : 400 }}>
+            {opt}{on && <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>✓</span>}
+          </button>;
+        })}
+      </div>
+      <button onClick={() => onToggle && onToggle(local)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
+    </div>
+  );
+};
+
+const TagSelect = ({ options, selected, onChange }) => (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+    {options.map(opt => { const on = selected.includes(opt); return <button key={opt} onClick={() => onChange(on ? selected.filter(s=>s!==opt) : [...selected,opt])} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 13, background: on ? "rgba(0,0,0,0.1)" : C.card, color: on ? C.accent : C.muted, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", fontWeight: on ? 600 : 400 }}>{opt}</button>; })}
+  </div>
+);
+
+const LIGHTS = [
+  { name: "Bright White", color: "#ffffff" }, { name: "Warm White", color: "#eeeeee" },
+  { name: "Sunrise", color: "#dddddd" }, { name: "Amber", color: "#cccccc" },
+  { name: "Coral", color: "#bbbbbb" }, { name: "Lavender", color: "#aaaaaa" },
+  { name: "Sky Blue", color: "#888888" }, { name: "Forest", color: "#666666" },
+  { name: "Off", color: "#333333" },
+];
+
+function LightSelector({ current, onSave }) {
+  const [sel, setSel] = useState(current || "Bright White");
+  const light = LIGHTS.find(l => l.name === sel) || LIGHTS[0];
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: light.color, border: `1px solid ${C.border}`, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", transition: "all 0.3s ease" }} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+        {LIGHTS.map(l => <button key={l.name} onClick={() => setSel(l.name)} style={{ padding: "12px 8px", borderRadius: 14, border: `1.5px solid ${sel===l.name ? C.accent : C.border}`, background: sel===l.name ? "rgba(0,0,0,0.06)" : C.card, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: l.color, border: `1px solid ${C.border}` }} />
+          <span style={{ fontSize: 11, color: sel===l.name ? C.accent : C.muted, textAlign: "center", lineHeight: 1.2, fontWeight: sel===l.name ? 600 : 400 }}>{l.name}</span>
+        </button>)}
+      </div>
+      <button onClick={() => onSave(sel)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
+    </div>
+  );
+}
+
+const SOUNDS = [
+  { name: "Rain", icon: "🌧️" }, { name: "Ocean Waves", icon: "🌊" }, { name: "White Noise", icon: "🔲" },
+  { name: "Brown Noise", icon: "🟫" }, { name: "Forest", icon: "🌿" }, { name: "Fireplace", icon: "🔥" },
+  { name: "Fan", icon: "💨" }, { name: "Thunderstorm", icon: "⛈️" }, { name: "Pink Noise", icon: "🌸" }, { name: "None", icon: "🔇" },
+];
+
+function SoundSelector({ current, onSave }) {
+  const [sel, setSel] = useState(current || "None");
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+        {SOUNDS.map(s => <button key={s.name} onClick={() => setSel(s.name)} style={{ padding: "14px 12px", borderRadius: 14, border: `1.5px solid ${sel===s.name ? C.accent : C.border}`, background: sel===s.name ? "rgba(0,0,0,0.06)" : C.card, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontWeight: sel===s.name ? 600 : 400 }}>
+          <span style={{ fontSize: 22 }}>{s.icon}</span>
+          <span style={{ fontSize: 14, color: sel===s.name ? C.accent : C.text }}>{s.name}</span>
+        </button>)}
+      </div>
+      <button onClick={() => onSave(sel)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button>
+    </div>
+  );
+}
+
+const QUIZ_STEPS = [
+  { key: "betterSleep", title: "What does better sleep mean to you?", hint: "Pick the one that resonates most.", multi: false, options: ["An investment in self-care","Feeling calmer and less frazzled","Tackling responsibilities without running out of steam","Having energy to take on new challenges","Taking control of 'me' time"] },
+  { key: "focusArea", title: "What's your focus area?", hint: "We'll tailor your experience around this.", multi: false, options: ["Morning","Evening","Both"] },
+  { key: "controlAreas", title: "What do you have control over?", hint: "This helps us set realistic goals.", multi: false, options: ["Fixed wake time","Fixed bedtime","Both are flexible","Neither is flexible"] },
+  { key: "bedSharing", title: "Do you share your bed?", hint: "This helps calibrate your device.", multi: false, options: ["Solo","With a partner","With a child","With a pet","Multiple"] },
+  { key: "bedSize", title: "What size is your bed?", hint: null, multi: false, options: ["Twin / Single","Full / Double","Queen","King","California King"] },
+  { key: "influences", title: "What influences your sleep?", hint: "Select all that apply.", multi: true, options: ["Stress","Hormones","Young children","Frequent travel","Noise","Shift work","Anxiety","Overheating"] },
+  { key: "behaviors", title: "What most affects your sleep?", hint: "Be honest — we're here to help.", multi: true, options: ["Stressing about life as I fall asleep","Looking at my phone in bed","Staying up too late","Overworking the snooze button","I'm doing pretty well already"] },
+  { key: "wakeStyle", title: "How do you like to wake up?", hint: "This shapes your morning alarm experience.", multi: false, options: ["Gentle — ease me in slowly","Motivating — a little push","High energy — let's go"] },
+  { key: "windDown", title: "What do you like to do before bed?", hint: "Select all that apply.", multi: true, options: ["Reading","Yoga","Stretching","Journaling","Meditation","Breathwork","Light TV","Skincare"] },
+  { key: "contentTypes", title: "What content do you enjoy?", hint: "We'll build your library around these.", multi: true, options: ["Music","Meditations","Soundscapes","Bedtime Podcasts","Bedtime Stories","Sound Baths","ASMR"] },
+];
+
+function QuizFlow({ onComplete, onBack }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const q = QUIZ_STEPS[step];
+  const current = answers[q.key] ?? (q.multi ? [] : null);
+  const progress = (step+1)/QUIZ_STEPS.length;
+  const canAdvance = q.multi ? (current?.length > 0) : !!current;
+  const toggle = opt => { if (q.multi) setAnswers(a => ({ ...a, [q.key]: (current||[]).includes(opt) ? (current||[]).filter(s=>s!==opt) : [...(current||[]),opt] })); else setAnswers(a => ({ ...a, [q.key]: opt })); };
+  const advance = () => step < QUIZ_STEPS.length-1 ? setStep(s=>s+1) : onComplete(answers);
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "12px 20px 24px", overflowY: "auto", background: C.phoneBg }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button onClick={step===0 ? onBack : ()=>setStep(s=>s-1)} style={{ background: "none", border: "none", color: C.accent, fontSize: 22, cursor: "pointer" }}>‹</button>
+        <div style={{ flex: 1, height: 3, background: "rgba(0,0,0,0.1)", borderRadius: 2 }}>
+          <div style={{ width: `${progress*100}%`, height: "100%", background: C.accent, borderRadius: 2, transition: "width 0.3s" }} />
+        </div>
+        <span style={{ fontSize: 12, color: C.muted }}>{step+1}/{QUIZ_STEPS.length}</span>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Getting to know you</div>
+        <div style={{ fontSize: 21, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: q.hint ? 8 : 0 }}>{q.title}</div>
+        {q.hint && <div style={{ fontSize: 13, color: C.muted }}>{q.hint}</div>}
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+        {q.options.map(opt => { const on = q.multi ? (current||[]).includes(opt) : current===opt; return <button key={opt} onClick={() => toggle(opt)} style={{ padding: "14px 18px", borderRadius: 16, fontSize: 15, textAlign: "left", background: on ? "rgba(0,0,0,0.08)" : C.card, color: on ? C.accent : C.text, border: `1px solid ${on ? C.accent : C.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: on ? 600 : 400 }}>
+          {opt}{on && <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:11, fontWeight:700, flexShrink:0 }}>✓</span>}
+        </button>; })}
+      </div>
+      <button onClick={advance} disabled={!canAdvance} style={{ marginTop: 20, width: "100%", padding: 16, borderRadius: 16, background: canAdvance ? C.accent : "rgba(0,0,0,0.08)", color: canAdvance ? "#fff" : "rgba(0,0,0,0.25)", fontSize: 16, fontWeight: 700, border: "none", cursor: canAdvance ? "pointer" : "default" }}>{step===QUIZ_STEPS.length-1 ? "Finish" : "Continue"}</button>
+    </div>
+  );
+}
+
+const PROFILE_FIELDS = {
+  values: [
+    { key: "betterSleep", label: "What better sleep means to you", multi: false, options: ["An investment in self-care","Feeling calmer and less frazzled","Tackling responsibilities without running out of steam","Having energy to take on new challenges","Taking control of 'me' time"] },
+    { key: "focusArea", label: "Focus area", multi: false, options: ["Morning","Evening","Both"] },
+    { key: "controlAreas", label: "Areas of control", multi: false, options: ["Fixed wake time","Fixed bedtime","Both are flexible","Neither is flexible"] },
+  ],
+  context: [
+    { key: "bedSharing", label: "Bed sharing", multi: false, options: ["Solo","With a partner","With a child","With a pet","Multiple"] },
+    { key: "bedSize", label: "Bed size", multi: false, options: ["Twin / Single","Full / Double","Queen","King","California King"] },
+    { key: "influences", label: "Influences on sleep", multi: true, options: ["Stress","Hormones","Young children","Frequent travel","Noise","Shift work","Anxiety","Overheating"] },
+    { key: "behaviors", label: "What most affects sleep", multi: true, options: ["Stressing about life","Phone in bed","Staying up too late","Overworking snooze","Doing pretty well"] },
+    { key: "consistency", label: "Sleep schedule", multi: false, options: ["Very regular","Fairly regular","Varies by day","Shifts or irregular"] },
+  ],
+  prefs: [
+    { key: "wakeStyle", label: "How you like to wake up", multi: false, options: ["Gentle — ease me in slowly","Motivating — a little push","High energy — let's go"] },
+    { key: "windDown", label: "Before-bed activities", multi: true, options: ["Reading","Yoga","Stretching","Journaling","Meditation","Breathwork","Light TV","Skincare"] },
+    { key: "contentTypes", label: "Content you enjoy", multi: true, options: ["Music","Meditations","Soundscapes","Bedtime Podcasts","Bedtime Stories","Sound Baths","ASMR"] },
+  ],
+};
+
+function EditableProfileCard({ title, fields, profile, setProfile }) {
+  const [activeSheet, setActiveSheet] = useState(null);
+  const activeField = fields.find(f => f.key === activeSheet);
+  return (
+    <>
+      <div style={{ ...glass(), padding: "16px", marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{title}</div>
+        {fields.map((f, i) => {
+          const val = profile[f.key];
+          const display = Array.isArray(val) ? (val.length > 0 ? val.slice(0,2).join(", ")+(val.length>2?` +${val.length-2}`:"") : null) : val;
+          return <div key={f.key} onClick={() => setActiveSheet(f.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i<fields.length-1 ? `1px solid ${C.border}` : "none", cursor: "pointer" }}>
+            <span style={{ fontSize: 14, color: display ? C.text : C.muted }}>{f.label}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 13, color: display ? C.accentMid : C.faint, maxWidth: 140, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{display || "Set"}</span>
+              <span style={{ color: C.faint, fontSize: 16 }}>›</span>
+            </div>
+          </div>;
+        })}
+      </div>
+      {activeSheet && activeField && <Sheet title={activeField.label} onClose={() => setActiveSheet(null)}>
+        {activeField.multi
+          ? <><TagSelect options={activeField.options} selected={profile[activeField.key]||[]} onChange={v => setProfile(p => ({ ...p, [activeField.key]: v }))} /><button onClick={() => setActiveSheet(null)} style={{ width: "100%", padding: 14, borderRadius: 14, background: C.accent, color: "#fff", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}>Save</button></>
+          : <OptionList options={activeField.options} selected={profile[activeField.key]} multi={false} onToggle={opt => { setProfile(p => ({ ...p, [activeField.key]: opt })); setActiveSheet(null); }} />
+        }
+      </Sheet>}
+    </>
+  );
+}
+
+function DeviceCard({ device, setDevice }) {
+  const [activeSheet, setActiveSheet] = useState(null);
+  const stats = [
+    { key: "wifi", label: "Wi-Fi", value: device.wifi, tappable: false },
+    { key: "sensing", label: "Sleep sensing", value: device.sensing, tappable: false },
+    { key: "light", label: "Bedside Light", value: device.light, tappable: true },
+    { key: "sleepBtn", label: "Sleep Button", value: device.sleepBtn, tappable: true },
+    { key: "display", label: "Display", value: device.display, tappable: false },
+  ];
+  return (
+    <>
+      <div style={{ ...glass(), padding: "16px", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: C.cardInner, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🌙</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>My Sleep Clock</div>
+              <div style={{ fontSize: 11, color: C.muted }}>Hatch Sleep Clock</div>
+            </div>
+          </div>
+        </div>
+        <a href="#" onClick={e => e.preventDefault()} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: C.accentMid, textDecoration: "none", marginBottom: 14, borderBottom: `1px solid ${C.border}`, paddingBottom: 14 }}>
+          <span>📖</span> Hardware User Guide <span style={{ color: C.faint, fontSize: 16, marginLeft: "auto" }}>›</span>
+        </a>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginBottom: 7 }}>
+          {stats.slice(0,3).map(s => <div key={s.key} onClick={s.tappable ? () => setActiveSheet(s.key) : undefined} style={{ background: C.cardInner, borderRadius: 10, padding: "9px 10px", border: `1px solid ${C.border}`, cursor: s.tappable ? "pointer" : "default", position: "relative" }}>
+            <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>{s.label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.value}</div>
+            {s.tappable && <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: C.faint }}>›</span>}
+          </div>)}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          {stats.slice(3).map(s => <div key={s.key} onClick={s.tappable ? () => setActiveSheet(s.key) : undefined} style={{ background: C.cardInner, borderRadius: 10, padding: "9px 12px", border: `1px solid ${C.border}`, cursor: s.tappable ? "pointer" : "default", position: "relative" }}>
+            <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>{s.label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{s.value}</div>
+            {s.tappable && <span style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: C.faint }}>›</span>}
+          </div>)}
+        </div>
+      </div>
+      {activeSheet==="light" && <Sheet title="Bedside Light" onClose={() => setActiveSheet(null)}><LightSelector current={device.light} onSave={v => { setDevice(d=>({...d,light:v})); setActiveSheet(null); }} /></Sheet>}
+      {activeSheet==="sleepBtn" && <Sheet title="Sleep Button Sound" onClose={() => setActiveSheet(null)}><SoundSelector current={device.sleepBtn==="Not set"?"None":device.sleepBtn} onSave={v => { setDevice(d=>({...d,sleepBtn:v})); setActiveSheet(null); }} /></Sheet>}
+    </>
+  );
+}
+
+function ProfileScreen({ newUser, sharedProfile, setSharedProfile }) {
+  const defaultEmpty = { betterSleep: null, focusArea: null, controlAreas: null, bedSize: null, bedSharing: null, influences: [], behaviors: [], consistency: null, wakeStyle: null, windDown: [], contentTypes: [] };
+  const defaultFull = { betterSleep: "Feeling calmer and less frazzled", focusArea: "Evening", controlAreas: "Fixed wake time", bedSize: "Queen", bedSharing: "With a partner", influences: ["Stress","Hormones"], behaviors: ["Phone in bed"], consistency: "Fairly regular", wakeStyle: "Gentle — ease me in slowly", windDown: ["Reading","Stretching"], contentTypes: ["Music","Soundscapes"] };
+  const [profile, setProfile] = useState(sharedProfile ?? (newUser ? defaultEmpty : defaultFull));
+  const [device, setDevice] = useState({ wifi: "Online", sensing: "Auto", light: "Bright White", sleepBtn: "Not set", display: "Always off" });
+  const updateProfile = updater => { setProfile(p => { const next = typeof updater==="function" ? updater(p) : updater; if (setSharedProfile) setSharedProfile(next); return next; }); };
+
+  return (
+    <div style={{ overflowY: "auto", flex: 1, padding: "8px 16px 32px", background: C.phoneBg }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: C.text, margin: "0 0 2px" }}>Profile</h1>
+        <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>Your sleep identity and device settings</p>
+      </div>
+      <div style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Your sleep goal</div>
+        {profile.betterSleep ? <>
+          <div style={{ fontSize: 17, fontWeight: 600, color: C.text, lineHeight: 1.4, marginBottom: 10 }}>"{profile.betterSleep}"</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {profile.focusArea && <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, background: C.cardInner, color: C.accentMid, border: `1px solid ${C.border}` }}>Focus: {profile.focusArea}</span>}
+            {profile.controlAreas && <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, background: C.cardInner, color: C.accentMid, border: `1px solid ${C.border}` }}>{profile.controlAreas}</span>}
+          </div>
+        </> : <div style={{ fontSize: 14, color: C.muted }}>Complete setup to see your sleep goal here.</div>}
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Sleep Profile</div>
+      <EditableProfileCard title="Sleep Values" fields={PROFILE_FIELDS.values} profile={profile} setProfile={updateProfile} />
+      <EditableProfileCard title="Sleep Context" fields={PROFILE_FIELDS.context} profile={profile} setProfile={updateProfile} />
+      <EditableProfileCard title="Preferences" fields={PROFILE_FIELDS.prefs} profile={profile} setProfile={updateProfile} />
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", margin: "20px 0 12px" }}>My Sleep Clock</div>
+      <DeviceCard device={device} setDevice={setDevice} />
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.muted, textTransform: "uppercase", margin: "20px 0 12px" }}>Account</div>
+      <div style={{ ...glass(), overflow: "hidden", marginBottom: 20 }}>
+        {[["Notifications","On"],["Subscription","Hatch+"],["Account","taryn@hatch.co"]].map(([l,v],i,arr) => (
+          <div key={l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", borderBottom: i<arr.length-1 ? `1px solid ${C.border}` : "none", cursor:"pointer" }}>
+            <span style={{ fontSize:15, color:C.text }}>{l}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ fontSize:14, color:C.muted }}>{v}</span>
+              <span style={{ color:C.faint, fontSize:18 }}>›</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button style={{ width:"100%", padding:14, borderRadius:14, background:"rgba(180,0,0,0.06)", color:"#cc2222", fontSize:15, border:"1px solid rgba(180,0,0,0.15)", cursor:"pointer" }}>Sign out</button>
+    </div>
+  );
+}
+
+const MetricCard = ({ icon, title, value, sub, days }) => (
+  <div style={{ ...glass(), padding: "14px 16px", marginBottom: 10 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: C.cardInner, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{icon}</div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.8 }}>{title}</span>
+      </div>
+      <span style={{ fontSize: 11, color: C.faint }}>ⓘ</span>
+    </div>
+    {sub && <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{sub}</div>}
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ fontSize: 30, fontWeight: 700, color: C.text, lineHeight: 1 }}>{value}</div>
+      {days && <div style={{ display: "flex", gap: 4, alignItems: "flex-end" }}>
+        {["M","T","W","T","F","S","S"].map((d,i) => <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+          <div style={{ width:6, height:Math.max(4,days[i]*30), background: days[i]>0.5 ? C.accent : C.cardInner, borderRadius:3, border:`1px solid ${C.border}` }} />
+          <span style={{ fontSize:9, color:C.muted }}>{d}</span>
+        </div>)}
+      </div>}
+    </div>
+  </div>
+);
+
+function SleepScreen({ newUser, quizComplete, onStartQuiz, onViewProfile }) {
+  return (
+    <div style={{ overflowY: "auto", flex: 1, background: C.phoneBg }}>
+      <Sunrise />
+      <div style={{ padding: "16px 16px 24px" }}>
+        {newUser ? <>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.text, margin: "0 0 6px" }}>Welcome to Hatch</h1>
+          <p style={{ fontSize: 14, color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>Let's personalize your experience so Hatch can support your sleep from the very first night.</p>
+          {quizComplete ? (
+            <div style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "22px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 16, background: C.cardInner, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>✅</div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Getting to know you</div>
+                  <div style={{ fontSize: 13, color: C.accentMid, fontWeight: 600 }}>Complete!</div>
+                </div>
+              </div>
+              <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Hatch experience is now personalized. You can update your preferences any time.</p>
+              <button onClick={onViewProfile} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 24, background: C.cardInner, color: C.accent, fontSize: 14, fontWeight: 600, border: `1px solid ${C.border}`, cursor: "pointer" }}>View your profile ›</button>
+            </div>
+          ) : (
+            <div onClick={onStartQuiz} style={{ background: C.card, borderRadius: 22, border: `1px solid ${C.border}`, padding: "22px 20px", cursor: "pointer", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 32 }}>✨</div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Getting to know you</div>
+                  <div style={{ fontSize: 13, color: C.muted }}>About 2 minutes</div>
+                </div>
+              </div>
+              <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Tell us about your sleep, your habits, and what you're hoping to improve. We'll use this to build your personalized Hatch experience.</p>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 24, background: C.accent, color: "#fff", fontSize: 14, fontWeight: 700 }}>Let's go ›</div>
+            </div>
+          )}
+        </> : <>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>Sleep</h1>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Last 7 days</div>
+          <MetricCard icon="🎵" title="Bedtime Playlist Sessions" value="13m" sub="Avg time to fall asleep" days={[0.4,0.8,0.6,1,0.5,0.7,0.9]} />
+          <MetricCard icon="📵" title="Goodnight Phone Wins" value="5" sub="nights per week" days={[1,0,1,1,0,1,1]} />
+          <MetricCard icon="🌙" title="Bedtime Rhythm" value="2h 9m" sub="Variability" days={[0.6,0.4,0.9,0.3,0.7,0.5,0.8]} />
+          <MetricCard icon="💤" title="Time Asleep" value="8h 31m" sub="Avg duration" days={[0.7,0.9,0.6,1,0.8,0.5,0.9]} />
+          <MetricCard icon="☀️" title="Wake Time Rhythm" value="1h 14m" sub="Variability" days={[0.5,0.3,0.8,0.4,0.6,0.9,0.4]} />
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function PlanScreen() {
+  return (
+    <div style={{ overflowY: "auto", flex: 1, padding: "16px", background: C.phoneBg }}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, color: C.text, marginBottom: 20 }}>Tonight's plan</h1>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+        {[["Bedtime","10:00 PM","Reminder at 9:30 PM"],["Wake time","7:00 AM","Sunrise at 6:30 AM"]].map(([l,t,s]) => (
+          <div key={l} style={{ ...glass(), padding: 14 }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{l}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{t}</div>
+            <div style={{ fontSize: 11, color: C.accentMid, marginTop: 4 }}>● {s}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 16, color: C.text }}>Bedtime playlist</span>
+        <button style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 20, padding: "8px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>▶ Start</button>
+      </div>
+      {[["Irreverent Meditations","Moonrise Horizon Light · 12 min","#cccccc"],["Handpan Harmony","Golden Coast Light · 22 min","#bbbbbb"],["i'll scroll 4 u","Lunar Dusk Light · 18 min","#aaaaaa"]].map(([t,s,c]) => (
+        <div key={t} style={{ ...glass(), padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: c, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{t}</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{s}</div>
+          </div>
+          <span style={{ color: C.faint }}>›</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState("sleep");
+  const [showProfile, setShowProfile] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [newUser, setNewUser] = useState(false);
+  const [quizComplete, setQuizComplete] = useState(false);
+  const [sharedProfile, setSharedProfile] = useState(null);
+  const handleQuizComplete = answers => { setSharedProfile(answers); setQuizComplete(true); setShowQuiz(false); };
+  const handleViewProfile = () => { setShowProfile(true); setShowQuiz(false); };
+
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", minHeight: "100vh", background: C.pageBg, padding: "32px 16px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ width: 375, background: C.phoneBg, borderRadius: 48, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.08)", position: "relative", height: 780, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 24px 0", fontSize: 12, fontWeight: 600, color: C.text, flexShrink: 0 }}>
+          <span>9:41</span>
+          <div style={{ display: "flex", gap: 5, alignItems: "center", fontSize: 11 }}><span>▲▲▲</span><span>WiFi</span><span>▮▮</span></div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 20px 0", flexShrink: 0 }}>
+          <button onClick={() => { setShowProfile(!showProfile); setShowQuiz(false); }} style={{ width: 38, height: 38, borderRadius: "50%", background: showProfile ? C.accent : C.card, border: `1.5px solid ${showProfile ? C.accent : C.border}`, color: showProfile ? "#fff" : C.muted, fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>👤</button>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "4px 0", flexShrink: 0 }}>
+          <button onClick={() => { setNewUser(!newUser); setQuizComplete(false); setSharedProfile(null); }} style={{ fontSize: 11, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "3px 10px", cursor: "pointer" }}>
+            Demo: {newUser ? "New user" : "Returning user"} — tap to switch
+          </button>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {showQuiz ? <QuizFlow onBack={() => setShowQuiz(false)} onComplete={handleQuizComplete} />
+            : showProfile ? <ProfileScreen newUser={newUser} sharedProfile={sharedProfile} setSharedProfile={setSharedProfile} />
+            : tab === "plan" ? <PlanScreen />
+            : <SleepScreen newUser={newUser} quizComplete={quizComplete} onStartQuiz={() => setShowQuiz(true)} onViewProfile={handleViewProfile} />}
+        </div>
+        <div style={{ flexShrink: 0, padding: "8px 0 0", background: C.card, borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ display: "flex", background: C.cardInner, borderRadius: 24, padding: 4, border: `1px solid ${C.border}`, gap: 4 }}>
+              {[["sleep","🌙","Sleep"],["plan","📋","Plan"]].map(([key,icon,label]) => (
+                <button key={key} onClick={() => { setTab(key); setShowProfile(false); setShowQuiz(false); }} style={{ padding: "8px 28px", borderRadius: 20, fontSize: 13, fontWeight: 600, background: tab===key && !showProfile ? C.accent : "none", color: tab===key && !showProfile ? "#fff" : C.accentMid, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 15 }}>{icon}</span>{label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 10px" }}>
+            <div style={{ width: 120, height: 4, background: C.cardInner, borderRadius: 2 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
